@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: uno-server
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: PORT
+        value: 3001
+    plan: free

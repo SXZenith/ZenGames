@@ -1,0 +1,486 @@
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { UnoCard, CardBack } from './Card';
+import ColorPicker from './ColorPicker';
+import LobbySettings from './LobbySettings';
+import {
+  soundCardPlace, soundCardDraw, soundWild, soundUno, soundCatch,
+  soundSkip, soundDraw2, soundYourTurn, soundReaction,
+  isMuted, toggleMute
+} from '../sounds';
+import './Game.css';
+
+const COLOR_NAMES  = { red: '#ff3b52', yellow: '#ffd93d', green: '#06d6a0', blue: '#4cc9f0' };
+const REACTIONS    = ['🔥', '😂', '😤', '🎉', '💀', '👍'];
+const CARD_W       = 72;   // must match Card.css .uno-card width
+
+// ---------------------------------------------------------------------------
+// Fan math — keeps all cards centered in the container, never off-screen.
+// Each card gets a `left` percentage (card centre) and a rotation.
+// translateX(-50%) in the transform shifts the card left by half its own
+// width so the percentage refers to the card centre, not its left edge.
+// ---------------------------------------------------------------------------
+function getFanStyles(index, total, isSelected) {
+  if (total === 0) return {};
+  const spread   = total === 1 ? 0 : (index / (total - 1)) - 0.5;  // -0.5 … +0.5
+  const maxRot   = Math.min(40, total * 3.5);                        // cap rotation
+  const rotate   = spread * maxRot;
+  const arcY     = Math.abs(spread) * 8;                             // slight arc
+  const liftY    = isSelected ? -34 : arcY;
+  // Spread centres from 12% to 88% of container width
+  const leftPct  = total === 1 ? 50 : 12 + (index / (total - 1)) * 76;
+
+  return {
+    left: `${leftPct}%`,
+    transform: `translateX(-50%) rotate(${rotate}deg) translateY(${liftY}px)`,
+    zIndex: isSelected ? 100 : index,
+  };
+}
+
+export default function Game({
+  gameState, playerId, roomCode, roomLink,
+  onStartGame, onPlayCard, onDrawCard, onRematch,
+  onCallUno, onCatchUno, onUpdateSettings, onSendReaction, onReaction,
+  drawResultBridge, error,
+}) {
+  const [selectedCard, setSelectedCard]          = useState(null);
+  const [pendingWildCard, setPendingWildCard]     = useState(null);
+  const [copied, setCopied]                       = useState(false);
+  const [timerLeft, setTimerLeft]                 = useState(null);
+  const [muted, setMutedState]                    = useState(isMuted());
+  const [showScoreboard, setShowScoreboard]       = useState(false);
+  const [showReactions, setShowReactions]         = useState(false);
+  const [floatingReactions, setFloatingReactions] = useState([]);
+  const [turnFlash, setTurnFlash]                 = useState(false);
+  const [deckShake, setDeckShake]                 = useState(false);
+  const [unoTimer, setUnoTimer]                   = useState(null);
+
+  const timerRef       = useRef(null);
+  const unoTimerRef    = useRef(null);
+  const prevTurnRef    = useRef(null);
+  const prevLastAction = useRef(null);
+  const prevUnoVuln    = useRef(null);
+
+  const me            = gameState.players.find(p => p.id === playerId);
+  const isHost        = gameState.players[0]?.id === playerId;
+  const isMyTurn      = gameState.players[gameState.currentPlayerIndex]?.id === playerId;
+  const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+  const myHandSize    = me?.hand?.length ?? 0;
+  const settings      = gameState.settings ?? {};
+  const unoVuln       = gameState.unoVulnerable;
+  const iAmVulnerable = unoVuln?.playerId === playerId;
+  const iCalledUno    = me?.unoCalled ?? false;
+  const isFinished    = gameState.state === 'finished';
+
+  // ── Mute ──────────────────────────────────────────────────────────────────
+  const handleMuteToggle = () => setMutedState(toggleMute());
+
+  // ── Register draw-result bridge ───────────────────────────────────────────
+  useEffect(() => {
+    if (!drawResultBridge) return;
+    drawResultBridge.current = ({ foundPlayable }) => {
+      // foundPlayable = true  → server stayed on this player's turn; they can now play
+      // foundPlayable = false → server advanced turn; our gameState update handles that
+      // Nothing extra needed client-side; game state update handles both cases.
+    };
+  }, [drawResultBridge]);
+
+  // When turn moves away from me clear any drawing state
+  useEffect(() => {
+    if (!isMyTurn) setSelectedCard(null);
+  }, [isMyTurn]);
+
+  // ── Sounds ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!gameState.lastAction || gameState.lastAction === prevLastAction.current) return;
+    prevLastAction.current = gameState.lastAction;
+    const { type, card } = gameState.lastAction;
+    if (type === 'play') {
+      if (card?.color === 'wild')                                 soundWild();
+      else if (card?.value === 'draw2')                           soundDraw2();
+      else if (card?.value === 'skip' || card?.value === 'reverse') soundSkip();
+      else                                                        soundCardPlace();
+    } else if (type === 'draw') {
+      soundCardDraw();
+      setDeckShake(true);
+      setTimeout(() => setDeckShake(false), 500);
+    } else if (type === 'uno-catch') {
+      soundCatch();
+    }
+  }, [gameState.lastAction]);
+
+  // ── Turn flash ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isMyTurn && prevTurnRef.current === false) {
+      soundYourTurn();
+      setTurnFlash(true);
+      setTimeout(() => setTurnFlash(false), 1800);
+    }
+    prevTurnRef.current = isMyTurn;
+  }, [isMyTurn]);
+
+  // ── Pick timer — stops when game is finished ───────────────────────────
+  useEffect(() => {
+    clearInterval(timerRef.current);
+    if (!isMyTurn || !settings.pickTimer || isFinished) { setTimerLeft(null); return; }
+    setTimerLeft(settings.pickTimer);
+    timerRef.current = setInterval(() => {
+      setTimerLeft(prev => {
+        if (prev <= 1) { clearInterval(timerRef.current); onDrawCard(); return null; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [isMyTurn, gameState.currentPlayerIndex, settings.pickTimer, isFinished]);
+
+  // ── UNO catch countdown ring ──────────────────────────────────────────────
+  useEffect(() => {
+    const vuln = gameState.unoVulnerable;
+    if (vuln && vuln !== prevUnoVuln.current) {
+      setUnoTimer(5);
+      clearInterval(unoTimerRef.current);
+      unoTimerRef.current = setInterval(() => {
+        setUnoTimer(prev => {
+          if (prev <= 1) { clearInterval(unoTimerRef.current); return null; }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    if (!vuln) { clearInterval(unoTimerRef.current); setUnoTimer(null); }
+    prevUnoVuln.current = vuln;
+  }, [gameState.unoVulnerable]);
+
+  // ── Incoming reactions ────────────────────────────────────────────────────
+  const handleIncomingReaction = useCallback((reaction) => {
+    soundReaction();
+    const id = Date.now() + Math.random();
+    setFloatingReactions(prev => [...prev, { ...reaction, id }]);
+    setTimeout(() => setFloatingReactions(prev => prev.filter(r => r.id !== id)), 2500);
+  }, []);
+
+  useEffect(() => { if (onReaction) onReaction.onReaction = handleIncomingReaction; });
+
+  // ── Clipboard ─────────────────────────────────────────────────────────────
+  const copyLink = useCallback(() => navigator.clipboard.writeText(roomLink).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }), [roomLink]);
+  const copyCode = useCallback(() => navigator.clipboard.writeText(roomCode).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }), [roomCode]);
+
+  // ── Card clicks ───────────────────────────────────────────────────────────
+  const handleCardClick = (card, isPlayable) => {
+    if (!isMyTurn || !isPlayable) return;
+    if (selectedCard?.id === card.id) {
+      // Second click = play it
+      if (card.color === 'wild') { setPendingWildCard(card); setSelectedCard(null); }
+      else { onPlayCard(card.id); setSelectedCard(null); }
+    } else {
+      setSelectedCard(card);
+    }
+  };
+
+  const handleColorChosen = (color) => {
+    if (pendingWildCard) { onPlayCard(pendingWildCard.id, color); setPendingWildCard(null); }
+  };
+
+  const sendReaction = (emoji) => { soundReaction(); onSendReaction(emoji); setShowReactions(false); };
+
+  // ── WAITING ROOM ──────────────────────────────────────────────────────────
+  if (gameState.state === 'waiting') {
+    return (
+      <div className="waiting-room">
+        <div className="waiting-card">
+          <div className="waiting-header">
+            <div className="uno-logo-small">UNO</div>
+            <h2>Waiting for players…</h2>
+            <p className="waiting-sub">{gameState.players.length}/4 players joined</p>
+          </div>
+          <div className="room-code-block">
+            <span className="rc-label">Room Code</span>
+            <div className="rc-code" onClick={copyCode}>{roomCode}</div>
+            <div className="rc-actions">
+              <button className="btn-secondary small" onClick={copyCode}>{copied ? '✓ Copied!' : 'Copy Code'}</button>
+              <button className="btn-secondary small" onClick={copyLink}>{copied ? '✓ Copied!' : '🔗 Copy Link'}</button>
+            </div>
+          </div>
+          <div className="player-list">
+            {gameState.players.map((p, i) => (
+              <div key={p.id} className={`player-slot filled ${p.id === playerId ? 'me' : ''}`}>
+                <div className="player-avatar" style={{ background: `hsl(${i * 90}, 60%, 50%)` }}>{p.name[0].toUpperCase()}</div>
+                <span className="player-slot-name">{p.name}{p.id === playerId ? ' (you)' : ''}</span>
+                {i === 0 && <span className="host-badge">Host</span>}
+                {!p.isConnected && <span className="dc-badge">Disconnected</span>}
+              </div>
+            ))}
+            {Array.from({ length: 4 - gameState.players.length }).map((_, i) => (
+              <div key={i} className="player-slot empty">
+                <div className="player-avatar empty-avatar">?</div>
+                <span className="player-slot-name">Waiting…</span>
+              </div>
+            ))}
+          </div>
+          <LobbySettings settings={gameState.settings} onChange={onUpdateSettings} isHost={isHost} />
+          {isHost
+            ? <button className="btn-primary" onClick={onStartGame} disabled={gameState.players.length < 2}>{gameState.players.length < 2 ? 'Need 1 more player' : 'Start Game →'}</button>
+            : <p className="waiting-for-host">Waiting for host to start the game…</p>
+          }
+          {error && <div className="error-msg">⚠ {error}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  // ── GAME OVER ─────────────────────────────────────────────────────────────
+  if (gameState.state === 'finished') {
+    const amWinner = gameState.winner === me?.name;
+    const sorted   = [...gameState.players].sort((a, b) => b.score - a.score);
+    return (
+      <div className="game-over">
+        <div className="game-over-card">
+          <div className="go-emoji">{amWinner ? '🎉' : '😢'}</div>
+          <h1 className="go-title">{amWinner ? 'You Won!' : `${gameState.winner} Won!`}</h1>
+          <div className="go-section-label" style={{ marginTop: 0 }}>This Round</div>
+          <div className="go-scores">
+            {gameState.players.map(p => (
+              <div key={p.id} className={`go-player ${p.id === playerId ? 'me' : ''} ${p.name === gameState.winner ? 'winner-row' : ''}`}>
+                <span className="go-player-name">{p.name === gameState.winner && <span className="go-crown">👑 </span>}{p.name}{p.id === playerId ? ' (you)' : ''}</span>
+                <span className="go-cards-left">{p.handSize} cards left</span>
+              </div>
+            ))}
+          </div>
+          <div className="go-section-label">Total Score</div>
+          <div className="go-scoreboard">
+            {sorted.map((p, i) => (
+              <div key={p.id} className={`go-score-row ${p.id === playerId ? 'me' : ''}`}>
+                <span className="go-rank">#{i + 1}</span>
+                <span className="go-score-name">{p.name}{p.id === playerId ? ' (you)' : ''}</span>
+                <span className="go-wins">{p.score} {p.score === 1 ? 'win' : 'wins'}</span>
+              </div>
+            ))}
+          </div>
+          <div className="go-actions">
+            {isHost
+              ? <button className="btn-primary" onClick={onRematch}>Rematch →</button>
+              : <p className="waiting-for-host" style={{ marginTop: 0 }}>Waiting for host to start rematch…</p>
+            }
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── IN GAME ───────────────────────────────────────────────────────────────
+  const opponents    = gameState.players.filter(p => p.id !== playerId);
+  const topCard      = gameState.topCard;
+  const currentColor = gameState.currentColor;
+  const hand         = me?.hand ?? [];
+
+  // Which cards can be played right now?
+  const playableSet = new Set();
+  if (isMyTurn) {
+    hand.forEach(card => {
+      let ok = false;
+      if (gameState.pendingDraw > 0) {
+        const t = gameState.pendingDrawType;
+        if (t === 'draw2' && card.value === 'draw2' && settings.stackDraw2) ok = true;
+        if (t === 'wild4' && card.value === 'wild4' && settings.stackDraw4) ok = true;
+      } else {
+        if (card.color === 'wild')              ok = true;
+        else if (card.color === currentColor)   ok = true;
+        else if (card.value === topCard?.value) ok = true;
+      }
+      if (ok) playableSet.add(card.id);
+    });
+  }
+
+  return (
+    <div className="game">
+      {pendingWildCard && <ColorPicker onChoose={handleColorChosen} />}
+
+      {/* YOUR TURN flash */}
+      {turnFlash && (
+        <div className="turn-flash-overlay">
+          <div className="turn-flash-text">YOUR TURN</div>
+        </div>
+      )}
+
+      {/* Floating emoji reactions */}
+      {floatingReactions.map(r => {
+        const pi = gameState.players.findIndex(p => p.id === r.playerId);
+        return (
+          <div key={r.id} className="floating-reaction" style={{ left: `${15 + pi * 18}%` }}>
+            <span className="fr-name">{r.playerName}</span>
+            <span className="fr-emoji">{r.emoji}</span>
+          </div>
+        );
+      })}
+
+      {/* Mid-game scoreboard overlay */}
+      {showScoreboard && (
+        <div className="mid-scoreboard" onClick={() => setShowScoreboard(false)}>
+          <div className="mid-sb-card" onClick={e => e.stopPropagation()}>
+            <div className="mid-sb-title">🏆 Scores</div>
+            {[...gameState.players].sort((a, b) => b.score - a.score).map((p, i) => (
+              <div key={p.id} className={`mid-sb-row ${p.id === playerId ? 'me' : ''}`}>
+                <span className="mid-sb-rank">#{i + 1}</span>
+                <span className="mid-sb-name">{p.name}</span>
+                <span className="mid-sb-score">{p.score} W</span>
+              </div>
+            ))}
+            <button className="btn-secondary small" style={{ marginTop: 12, width: '100%' }} onClick={() => setShowScoreboard(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* HUD */}
+      <div className="hud-buttons">
+        <button className="hud-btn" onClick={handleMuteToggle} title={muted ? 'Unmute' : 'Mute'}>{muted ? '🔇' : '🔊'}</button>
+        <button className="hud-btn" onClick={() => setShowScoreboard(s => !s)} title="Scores">🏆</button>
+        <div className="reaction-wrapper">
+          <button className="hud-btn" onClick={() => setShowReactions(s => !s)} title="React">😄</button>
+          {showReactions && (
+            <div className="reaction-picker">
+              {REACTIONS.map(e => <button key={e} className="react-btn" onClick={() => sendReaction(e)}>{e}</button>)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Opponents */}
+      <div className="opponents-row">
+        {opponents.map(p => {
+          const isTheirTurn  = gameState.players[gameState.currentPlayerIndex]?.id === p.id;
+          const pi           = gameState.players.indexOf(p);
+          const fanCount     = Math.min(p.handSize, 14);
+          const isVulnerable = unoVuln?.playerId === p.id;
+          return (
+            <div key={p.id} className={`opponent-area ${isTheirTurn ? 'active-turn' : ''}`}>
+              <div className="opp-info">
+                <div className="opp-avatar" style={{ background: `hsl(${pi * 90}, 60%, 50%)` }}>{p.name[0]}</div>
+                <div>
+                  <div className="opp-name">{p.name}</div>
+                  <div className="opp-count">{p.handSize} card{p.handSize !== 1 ? 's' : ''}</div>
+                </div>
+                {isTheirTurn   && <div className="turn-dot" />}
+                {!p.isConnected && <div className="dc-dot" />}
+              </div>
+              {/* Opponent card fan */}
+              <div className="opp-hand-fan">
+                {Array.from({ length: fanCount }).map((_, idx) => {
+                  const s  = fanCount === 1 ? 0 : (idx / (fanCount - 1)) - 0.5;
+                  const tx = s * Math.min(55, fanCount * 5);
+                  const rot = s * Math.min(45, fanCount * 3.5);
+                  return (
+                    <div key={idx} className="opp-fan-card" style={{ transform: `translateX(${tx}px) rotate(${rot}deg)`, zIndex: idx }}>
+                      <CardBack small />
+                    </div>
+                  );
+                })}
+                {p.handSize > 14 && <span className="more-cards">+{p.handSize - 14}</span>}
+              </div>
+              {/* UNO catch button + countdown ring */}
+              {isVulnerable && (
+                <div className="uno-catch-wrap">
+                  <button className="uno-call-btn" onClick={() => onCatchUno(p.id)}>🎯 Catch UNO!</button>
+                  {unoTimer !== null && (
+                    <div className="uno-countdown-ring">
+                      <svg viewBox="0 0 36 36" className="uno-ring-svg">
+                        <circle cx="18" cy="18" r="15" className="uno-ring-bg" />
+                        <circle cx="18" cy="18" r="15" className="uno-ring-fill" strokeDasharray={`${(unoTimer / 5) * 94} 94`} />
+                      </svg>
+                      <span className="uno-ring-num">{unoTimer}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Table */}
+      <div className="table-area">
+        <div className="game-info-strip">
+          {timerLeft !== null && (
+            <div className={`timer-badge ${timerLeft <= 5 ? 'urgent' : ''}`}>{timerLeft}s</div>
+          )}
+          <div className="turn-indicator">
+            {isMyTurn
+              ? <span className="your-turn">✦ Your Turn!</span>
+              : <span className="their-turn">{currentPlayer?.name}'s turn</span>}
+          </div>
+          {gameState.pendingDraw > 0 && (
+            <div className="draw-stack-badge">
+              {gameState.pendingDrawType === 'draw2' ? `+2 Stack (${gameState.pendingDraw})` : `+4 Stack (${gameState.pendingDraw})`}
+            </div>
+          )}
+          <div className="color-indicator" style={{
+            background: COLOR_NAMES[currentColor] ?? '#888',
+            boxShadow: `0 0 10px 3px ${COLOR_NAMES[currentColor] ?? '#888'}55`,
+          }} />
+        </div>
+
+        <div className="play-area">
+          <div className="deck-area">
+            <div className={deckShake ? 'deck-shake' : ''}><CardBack /></div>
+            <div className="deck-count">{gameState.deckSize}</div>
+            {isMyTurn && (
+              <button className="draw-btn" onClick={onDrawCard}>
+                {gameState.pendingDraw > 0 ? `Draw ${gameState.pendingDraw}` : 'Draw'}
+              </button>
+            )}
+          </div>
+          <div className="discard-area">
+            {topCard && <UnoCard card={topCard} disabled />}
+          </div>
+        </div>
+
+        {gameState.lastAction && (
+          <div className="last-action">
+            {gameState.lastAction.type === 'draw'
+              ? `${gameState.lastAction.player} drew ${gameState.lastAction.count} card${gameState.lastAction.count !== 1 ? 's' : ''}`
+              : gameState.lastAction.type === 'uno-catch'
+                ? `🎯 ${gameState.lastAction.player} was caught! +4 cards`
+                : `${gameState.lastAction.player} played a card`}
+          </div>
+        )}
+      </div>
+
+      {/* My hand — fan layout, always centered, never scrolls */}
+      <div className="my-hand-area">
+        <div className="hand-label">
+          Your hand <span className="hand-count">({myHandSize})</span>
+          {iAmVulnerable && <span className="uno-warn">⚠ Call UNO!</span>}
+        </div>
+        <div className="hand-fan-container">
+          {hand.map((card, idx) => {
+            const isSelected = selectedCard?.id === card.id;
+            const isPlayable = playableSet.has(card.id);
+            const fanStyle   = getFanStyles(idx, hand.length, isSelected);
+            return (
+              <div
+                key={card.id}
+                className={`hand-fan-item ${isSelected ? 'selected' : ''} ${isPlayable && isMyTurn ? 'playable' : 'not-playable'}`}
+                style={fanStyle}
+                onClick={() => handleCardClick(card, isPlayable)}
+              >
+                <UnoCard card={card} selected={isSelected} disabled={!isPlayable || !isMyTurn} />
+                {isPlayable && isMyTurn && !isSelected && <div className="playable-dot" />}
+              </div>
+            );
+          })}
+        </div>
+
+        {selectedCard && isMyTurn && <div className="play-hint">Click the card again to play it</div>}
+
+        {myHandSize <= 2 && myHandSize > 0 && (
+          <button
+            className={`my-uno-btn ${iCalledUno ? 'called' : ''}`}
+            onClick={() => { onCallUno(); soundUno(); }}
+            disabled={iCalledUno}
+          >
+            {iCalledUno ? '✓ UNO Called!' : '🃏 UNO!'}
+          </button>
+        )}
+      </div>
+
+      {error && <div className="error-toast">⚠ {error}</div>}
+    </div>
+  );
+}

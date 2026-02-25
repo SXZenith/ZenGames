@@ -1,0 +1,112 @@
+.lobby {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.lobby-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 40px 44px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+}
+
+.lobby-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 36px;
+  justify-content: center;
+}
+
+.uno-badge {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.8rem;
+  line-height: 1;
+  background: linear-gradient(135deg, #ff3b52, #ffd93d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 2px;
+  filter: drop-shadow(0 2px 8px rgba(255,59,82,0.4));
+}
+
+.lobby-subtitle {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.tab-bar {
+  display: flex;
+  background: var(--surface2);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 28px;
+  gap: 4px;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px;
+  border-radius: 9px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: transparent;
+  color: var(--text-muted);
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+
+.tab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.lobby-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: -4px;
+}
+
+.code-input {
+  font-size: 1.4rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 6px !important;
+  text-align: center;
+  font-family: 'Bebas Neue', sans-serif !important;
+}
+
+.error-msg {
+  margin-top: 12px;
+  background: rgba(255,59,82,0.12);
+  border: 1px solid rgba(255,59,82,0.25);
+  color: #ff6b6b;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.lobby-note {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
