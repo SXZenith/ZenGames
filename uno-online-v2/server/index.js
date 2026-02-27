@@ -1,19 +1,23 @@
+'use strict';
+
 const express = require('express');
-const http = require('http');
+const http    = require('http');
 const { Server } = require('socket.io');
-const cors = require('cors');
+const cors   = require('cors');
 const { v4: uuidv4 } = require('uuid');
-const { createGame, dealCards, playCard, forceDraw, drawCards, getPublicState, DEFAULT_SETTINGS } = require('./gameLogic');
+const {
+  createGame, dealCards, playCard, forceDraw, passTurn,
+  drawCards, getPublicState, DEFAULT_SETTINGS,
+} = require('./gameLogic');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
+const io = new Server(server, { cors: { origin: '*', methods: ['GET','POST'] } });
 
-const rooms = {};
-const socketToRoom = {};
+const rooms        = {};  // roomCode -> game
+const socketToRoom = {};  // socketId -> { roomCode, playerId }
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -25,21 +29,22 @@ function generateRoomCode() {
 function broadcastState(roomCode) {
   const game = rooms[roomCode];
   if (!game) return;
-  for (const player of game.players) {
-    const s = io.sockets.sockets.get(player.socketId);
-    if (s) s.emit('gameState', getPublicState(game, player.id));
+  for (const p of game.players) {
+    const s = io.sockets.sockets.get(p.socketId);
+    if (s) s.emit('gameState', getPublicState(game, p.id));
   }
 }
 
 io.on('connection', (socket) => {
-  console.log('Connected:', socket.id);
+  console.log('+ connect', socket.id);
 
   socket.on('createRoom', ({ playerName }) => {
+    if (!playerName?.trim()) return socket.emit('error', { message: 'Name required' });
     let roomCode;
     do { roomCode = generateRoomCode(); } while (rooms[roomCode]);
     const game = createGame(roomCode);
     const playerId = uuidv4();
-    game.players.push({ id: playerId, socketId: socket.id, name: playerName, hand: [], isConnected: true, score: 0 });
+    game.players.push({ id: playerId, socketId: socket.id, name: playerName.trim(), hand: [], isConnected: true, score: 0, unoCalled: false });
     rooms[roomCode] = game;
     socketToRoom[socket.id] = { roomCode, playerId };
     socket.join(roomCode);
@@ -48,17 +53,20 @@ io.on('connection', (socket) => {
   });
 
   socket.on('joinRoom', ({ roomCode, playerName }) => {
-    const game = rooms[roomCode];
-    if (!game) return socket.emit('error', { message: 'Room not found' });
+    if (!playerName?.trim()) return socket.emit('error', { message: 'Name required' });
+    const code = roomCode?.toUpperCase().trim();
+    const game = rooms[code];
+    if (!game)                    return socket.emit('error', { message: 'Room not found — check the code and try again' });
     if (game.state !== 'waiting') return socket.emit('error', { message: 'Game already in progress' });
     if (game.players.length >= 4) return socket.emit('error', { message: 'Room is full (max 4 players)' });
-    if (game.players.find(p => p.name === playerName)) return socket.emit('error', { message: 'Name already taken in this room' });
+    if (game.players.find(p => p.name.toLowerCase() === playerName.trim().toLowerCase()))
+                                  return socket.emit('error', { message: 'That name is already taken in this room' });
     const playerId = uuidv4();
-    game.players.push({ id: playerId, socketId: socket.id, name: playerName, hand: [], isConnected: true, score: 0 });
-    socketToRoom[socket.id] = { roomCode, playerId };
-    socket.join(roomCode);
-    socket.emit('roomJoined', { roomCode, playerId });
-    broadcastState(roomCode);
+    game.players.push({ id: playerId, socketId: socket.id, name: playerName.trim(), hand: [], isConnected: true, score: 0, unoCalled: false });
+    socketToRoom[socket.id] = { roomCode: code, playerId };
+    socket.join(code);
+    socket.emit('roomJoined', { roomCode: code, playerId });
+    broadcastState(code);
   });
 
   socket.on('updateSettings', (settings) => {
@@ -66,7 +74,7 @@ io.on('connection', (socket) => {
     if (!info) return;
     const game = rooms[info.roomCode];
     if (!game || game.state !== 'waiting') return;
-    if (game.players[0].id !== info.playerId) return;
+    if (game.players[0]?.id !== info.playerId) return;
     game.settings = { ...DEFAULT_SETTINGS, ...settings };
     broadcastState(info.roomCode);
   });
@@ -76,9 +84,9 @@ io.on('connection', (socket) => {
     if (!info) return;
     const game = rooms[info.roomCode];
     if (!game) return;
-    if (game.players[0].id !== info.playerId) return socket.emit('error', { message: 'Only the host can start' });
-    if (game.players.length < 2) return socket.emit('error', { message: 'Need at least 2 players' });
-    if (game.state !== 'waiting') return;
+    if (game.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can start' });
+    if (game.players.length < 2)               return socket.emit('error', { message: 'Need at least 2 players' });
+    if (game.state !== 'waiting')              return;
     game.state = 'playing';
     dealCards(game);
     broadcastState(info.roomCode);
@@ -89,7 +97,7 @@ io.on('connection', (socket) => {
     if (!info) return;
     const game = rooms[info.roomCode];
     if (!game || game.state !== 'finished') return;
-    if (game.players[0].id !== info.playerId) return socket.emit('error', { message: 'Only the host can rematch' });
+    if (game.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can start a rematch' });
     const fresh = createGame(info.roomCode, game.settings);
     fresh.players = game.players.map(p => ({ ...p, hand: [], unoCalled: false }));
     fresh.state = 'playing';
@@ -105,16 +113,18 @@ io.on('connection', (socket) => {
     if (!game) return;
     const result = playCard(game, info.playerId, cardId, chosenColor);
     if (result.error) return socket.emit('error', { message: result.error });
+
     if (result.gameOver) {
       const winner = game.players.find(p => p.name === game.winner);
       if (winner) winner.score = (winner.score || 0) + 1;
       broadcastState(info.roomCode);
       return;
     }
+
+    // UNO vulnerability: just played down to 1 card without calling UNO
     const player = game.players.find(p => p.id === info.playerId);
-    if (player && player.hand.length === 1 && !player.unoCalled) {
+    if (player?.hand.length === 1 && !player.unoCalled) {
       game.unoVulnerable = { playerId: player.id, playerName: player.name };
-      broadcastState(info.roomCode);
       clearTimeout(game._unoTimeout);
       game._unoTimeout = setTimeout(() => {
         if (game.unoVulnerable?.playerId === player.id) {
@@ -123,8 +133,35 @@ io.on('connection', (socket) => {
         }
       }, 5000);
     } else {
-      broadcastState(info.roomCode);
+      // Clear stale vulnerability if hand is no longer at 1
+      if (game.unoVulnerable?.playerId === info.playerId) {
+        clearTimeout(game._unoTimeout);
+        game.unoVulnerable = null;
+      }
     }
+    broadcastState(info.roomCode);
+  });
+
+  socket.on('drawCard', () => {
+    const info = socketToRoom[socket.id];
+    if (!info) return;
+    const game = rooms[info.roomCode];
+    if (!game) return;
+    const result = forceDraw(game, info.playerId);
+    if (result.error) return socket.emit('error', { message: result.error });
+    const player = game.players.find(p => p.id === info.playerId);
+    if (player) player.unoCalled = false;
+    broadcastState(info.roomCode);
+  });
+
+  socket.on('passTurn', () => {
+    const info = socketToRoom[socket.id];
+    if (!info) return;
+    const game = rooms[info.roomCode];
+    if (!game) return;
+    const result = passTurn(game, info.playerId);
+    if (result.error) return socket.emit('error', { message: result.error });
+    broadcastState(info.roomCode);
   });
 
   socket.on('callUno', () => {
@@ -148,7 +185,7 @@ io.on('connection', (socket) => {
     const game = rooms[info.roomCode];
     if (!game) return;
     if (!game.unoVulnerable || game.unoVulnerable.playerId !== targetPlayerId)
-      return socket.emit('error', { message: 'Too late! UNO window has passed.' });
+      return socket.emit('error', { message: 'Too late — UNO window has closed' });
     clearTimeout(game._unoTimeout);
     game.unoVulnerable = null;
     drawCards(game, targetPlayerId, 4);
@@ -157,22 +194,38 @@ io.on('connection', (socket) => {
     broadcastState(info.roomCode);
   });
 
-  socket.on('drawCard', () => {
+  // Return to lobby after game — resets scores, goes back to waiting state
+  socket.on('returnToLobby', () => {
+    const info = socketToRoom[socket.id];
+    if (!info) return;
+    const game = rooms[info.roomCode];
+    if (!game || game.state !== 'finished') return;
+    if (game.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can return to lobby' });
+    // Reset game to waiting state, wipe scores, keep players
+    const fresh = createGame(info.roomCode, game.settings);
+    fresh.players = game.players.map(p => ({ ...p, hand: [], unoCalled: false, score: 0 }));
+    fresh.state = 'waiting';
+    rooms[info.roomCode] = fresh;
+    broadcastState(info.roomCode);
+  });
+
+  // Chat message — broadcast to all players in the room
+  socket.on('chatMessage', ({ text }) => {
     const info = socketToRoom[socket.id];
     if (!info) return;
     const game = rooms[info.roomCode];
     if (!game) return;
-    const result = forceDraw(game, info.playerId);
-    if (result.error) return socket.emit('error', { message: result.error });
     const player = game.players.find(p => p.id === info.playerId);
-    if (player) player.unoCalled = false;
-    // Tell the drawing player if they found a playable card (drawUntilPlayable mode)
-    if (result.foundPlayable !== undefined) {
-      socket.emit('drawResult', { foundPlayable: result.foundPlayable });
-    }
-    broadcastState(info.roomCode);
+    if (!player) return;
+    const trimmed = text?.trim().slice(0, 200); // max 200 chars
+    if (!trimmed) return;
+    io.to(info.roomCode).emit('chatMessage', {
+      playerId:   info.playerId,
+      playerName: player.name,
+      text:       trimmed,
+      ts:         Date.now(),
+    });
   });
-
 
   socket.on('sendReaction', ({ emoji }) => {
     const info = socketToRoom[socket.id];
@@ -181,11 +234,11 @@ io.on('connection', (socket) => {
     if (!game) return;
     const player = game.players.find(p => p.id === info.playerId);
     if (!player) return;
-    // Broadcast reaction to all players in room
     io.to(info.roomCode).emit('reaction', { playerId: info.playerId, playerName: player.name, emoji });
   });
 
   socket.on('disconnect', () => {
+    console.log('- disconnect', socket.id);
     const info = socketToRoom[socket.id];
     if (!info) return;
     const game = rooms[info.roomCode];
@@ -194,7 +247,12 @@ io.on('connection', (socket) => {
       if (player) player.isConnected = false;
       broadcastState(info.roomCode);
       setTimeout(() => {
-        if (rooms[info.roomCode]?.players.every(p => !p.isConnected)) delete rooms[info.roomCode];
+        const g = rooms[info.roomCode];
+        if (g && g.players.every(p => !p.isConnected)) {
+          clearTimeout(g._unoTimeout);
+          delete rooms[info.roomCode];
+          console.log('Room cleaned up:', info.roomCode);
+        }
       }, 30000);
     }
     delete socketToRoom[socket.id];
@@ -202,10 +260,10 @@ io.on('connection', (socket) => {
 
   socket.on('reconnectPlayer', ({ roomCode, playerId }) => {
     const game = rooms[roomCode];
-    if (!game) return socket.emit('error', { message: 'Room expired' });
+    if (!game) return socket.emit('error', { message: 'Room has expired' });
     const player = game.players.find(p => p.id === playerId);
     if (!player) return socket.emit('error', { message: 'Player not found' });
-    player.socketId = socket.id;
+    player.socketId    = socket.id;
     player.isConnected = true;
     socketToRoom[socket.id] = { roomCode, playerId };
     socket.join(roomCode);
@@ -214,6 +272,6 @@ io.on('connection', (socket) => {
   });
 });
 
-app.get('/health', (_, res) => res.json({ ok: true }));
+app.get('/health', (_, res) => res.json({ ok: true, rooms: Object.keys(rooms).length }));
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, '0.0.0.0', () => console.log(`UNO server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`UNO server on port ${PORT}`));

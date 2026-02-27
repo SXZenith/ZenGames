@@ -1,135 +1,93 @@
+/* Card: 90×135px (was 72×108) */
 .uno-card {
-  width: 72px;
-  height: 108px;
-  border-radius: 10px;
+  width: 90px;
+  height: 135px;
+  border-radius: 12px;
   background: var(--card-color, #888);
-  box-shadow: var(--card-shadow);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3);
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
   flex-shrink: 0;
   position: relative;
   user-select: none;
 }
-
+/* Small card (opponent fans): 50×74px */
 .uno-card.small {
-  width: 42px;
-  height: 62px;
-  border-radius: 7px;
+  width: 50px;
+  height: 74px;
+  border-radius: 8px;
 }
-
-.uno-card.disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-  filter: saturate(0.5);
-}
+.uno-card.disabled { cursor: not-allowed; opacity: 0.38; filter: saturate(0.4); }
 
 .uno-card:not(.disabled):not(.selected):hover {
-  transform: translateY(-12px) scale(1.06);
-  box-shadow: 0 18px 40px rgba(0,0,0,0.55), 0 0 0 2px rgba(255,255,255,0.2);
+  transform: translateY(-14px) scale(1.07);
+  box-shadow: 0 22px 44px rgba(0,0,0,0.6), 0 0 0 2px rgba(255,255,255,0.2);
   z-index: 10;
 }
-
-/* Selected: pops up further with a bright ring */
 .uno-card.selected {
-  transform: translateY(-24px) scale(1.12);
-  box-shadow: 0 28px 56px rgba(0,0,0,0.7), 0 0 0 3px white, 0 0 20px rgba(255,255,255,0.4);
+  transform: translateY(-28px) scale(1.1);
+  box-shadow: 0 32px 60px rgba(0,0,0,0.7), 0 0 0 3px white, 0 0 24px rgba(255,255,255,0.5);
   z-index: 20;
   animation: selected-pulse 1.4s ease-in-out infinite;
 }
-
 @keyframes selected-pulse {
-  0%, 100% { box-shadow: 0 28px 56px rgba(0,0,0,0.7), 0 0 0 3px white, 0 0 16px rgba(255,255,255,0.3); }
-  50% { box-shadow: 0 28px 56px rgba(0,0,0,0.7), 0 0 0 3px white, 0 0 30px rgba(255,255,255,0.6); }
+  0%,100% { box-shadow: 0 32px 60px rgba(0,0,0,.7), 0 0 0 3px white, 0 0 18px rgba(255,255,255,.35); }
+  50%     { box-shadow: 0 32px 60px rgba(0,0,0,.7), 0 0 0 3px white, 0 0 34px rgba(255,255,255,.65); }
 }
 
 .card-inner {
-  position: absolute;
-  inset: 4px;
-  border-radius: 7px;
+  position: absolute; inset: 5px; border-radius: 8px;
   background: rgba(255,255,255,0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
-
-.uno-card.small .card-inner {
-  inset: 3px;
-  border-radius: 5px;
-}
+.uno-card.small .card-inner { inset: 3px; border-radius: 5px; }
 
 .card-center {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 2.2rem;
-  color: white;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.4);
-  line-height: 1;
+  font-size: 3rem; color: white;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5); line-height: 1;
 }
-
-.uno-card.small .card-center { font-size: 1.3rem; }
-.uno-card.action .card-center { font-size: 1.6rem; }
-.uno-card.small.action .card-center { font-size: 1rem; }
+.uno-card.small   .card-center { font-size: 1.6rem; }
+.uno-card.action  .card-center { font-size: 2.2rem; }
+.uno-card.small.action .card-center { font-size: 1.2rem; }
 
 .card-corner {
   position: absolute;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 0.85rem;
-  color: white;
-  line-height: 1;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1rem;
+  color: white; line-height: 1; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
-
-.top-left { top: 6px; left: 7px; }
-.bottom-right { bottom: 6px; right: 7px; transform: rotate(180deg); }
+.top-left    { top: 7px;    left: 9px; }
+.bottom-right { bottom: 7px; right: 9px; transform: rotate(180deg); }
 .uno-card.small .card-corner { display: none; }
 
-/* Wild card design - 4 colored quadrants */
+/* Wild card */
 .wild-card { background: #111318 !important; }
-
 .wild-inner {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  border-radius: 7px;
-  overflow: hidden;
+  position: absolute; inset: 0;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+  border-radius: 8px; overflow: hidden;
 }
-
 .wild-quadrant { opacity: 0.9; }
-.q1 { background: #ff3b52; }
-.q2 { background: #4cc9f0; }
-.q3 { background: #ffd93d; }
-.q4 { background: #06d6a0; }
-
+.q1 { background: #ff3b52; } .q2 { background: #4cc9f0; }
+.q3 { background: #ffd93d; } .q4 { background: #06d6a0; }
 .wild-center-label {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.5rem;
-  color: white;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 12px rgba(0,0,0,0.6);
-  letter-spacing: 1px;
-  z-index: 1;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.9rem; color: white;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.9), 0 0 14px rgba(0,0,0,0.7);
+  letter-spacing: 1px; z-index: 1;
 }
-
-.uno-card.small .wild-center-label { font-size: 0.9rem; }
+.uno-card.small .wild-center-label { font-size: 1.05rem; }
 
 /* Card back */
 .card-back { cursor: default; }
 .card-back .card-inner.back-inner {
   background: linear-gradient(135deg, #1a1d27, #2d3350);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.07);
 }
 .back-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.6rem;
-  letter-spacing: 2px;
+  font-family: 'Bebas Neue', sans-serif; font-size: 2.1rem; letter-spacing: 2px;
   background: linear-gradient(135deg, #ff3b52, #ffd93d);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.uno-card.small .back-logo { font-size: 0.95rem; }
+.uno-card.small .back-logo { font-size: 1.1rem; }

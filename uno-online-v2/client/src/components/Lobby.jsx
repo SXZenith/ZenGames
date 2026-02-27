@@ -1,28 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import './Lobby.css';
 
-export default function Lobby({ onCreateRoom, onJoinRoom, error, connected }) {
-  const [tab, setTab] = useState('create');
+export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, autoJoinCode }) {
+  const [tab,  setTab]  = useState(autoJoinCode ? 'join' : 'create');
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(autoJoinCode || '');
 
+  // If autoJoinCode arrives after mount (shouldn't happen now, but safe)
   useEffect(() => {
-    const autoCode = sessionStorage.getItem('autoJoinCode');
-    if (autoCode) {
-      setCode(autoCode);
-      setTab('join');
-      sessionStorage.removeItem('autoJoinCode');
-    }
-  }, []);
+    if (autoJoinCode) { setCode(autoJoinCode); setTab('join'); }
+  }, [autoJoinCode]);
 
   const handleCreate = (e) => {
     e.preventDefault();
-    if (name.trim()) onCreateRoom(name.trim());
+    if (name.trim() && connected) onCreateRoom(name.trim());
   };
 
   const handleJoin = (e) => {
     e.preventDefault();
-    if (name.trim() && code.trim()) onJoinRoom(code.trim(), name.trim());
+    if (name.trim() && code.trim().length === 6 && connected) onJoinRoom(code.trim(), name.trim());
   };
 
   return (
@@ -35,20 +31,14 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected }) {
 
         <div className="tab-bar">
           <button className={`tab ${tab === 'create' ? 'active' : ''}`} onClick={() => setTab('create')}>Create Room</button>
-          <button className={`tab ${tab === 'join' ? 'active' : ''}`} onClick={() => setTab('join')}>Join Room</button>
+          <button className={`tab ${tab === 'join'   ? 'active' : ''}`} onClick={() => setTab('join')  }>Join Room</button>
         </div>
 
         {tab === 'create' ? (
           <form onSubmit={handleCreate} className="lobby-form">
             <label className="form-label">Your Name</label>
-            <input
-              className="input-field"
-              placeholder="Enter your name…"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              maxLength={20}
-              autoFocus
-            />
+            <input className="input-field" placeholder="Enter your name…" value={name}
+              onChange={e => setName(e.target.value)} maxLength={20} autoFocus />
             <button className="btn-primary" type="submit" disabled={!name.trim() || !connected}>
               Create Room
             </button>
@@ -56,23 +46,12 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected }) {
         ) : (
           <form onSubmit={handleJoin} className="lobby-form">
             <label className="form-label">Your Name</label>
-            <input
-              className="input-field"
-              placeholder="Enter your name…"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              maxLength={20}
-              autoFocus
-            />
-            <label className="form-label" style={{marginTop: 8}}>Room Code</label>
-            <input
-              className="input-field code-input"
-              placeholder="ABC123"
-              value={code}
-              onChange={e => setCode(e.target.value.toUpperCase())}
-              maxLength={6}
-            />
-            <button className="btn-primary" type="submit" disabled={!name.trim() || code.length < 6 || !connected}>
+            <input className="input-field" placeholder="Enter your name…" value={name}
+              onChange={e => setName(e.target.value)} maxLength={20} autoFocus />
+            <label className="form-label" style={{ marginTop: 8 }}>Room Code</label>
+            <input className="input-field code-input" placeholder="ABC123" value={code}
+              onChange={e => setCode(e.target.value.toUpperCase())} maxLength={6} />
+            <button className="btn-primary" type="submit" disabled={!name.trim() || code.trim().length < 6 || !connected}>
               Join Room
             </button>
           </form>
@@ -80,7 +59,9 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected }) {
 
         {error && <div className="error-msg">⚠ {error}</div>}
 
-        <div className="conn-status" style={{color: connected ? "var(--green)" : "var(--text-muted)", fontSize: "0.78rem", textAlign: "center", marginBottom: "-8px"}}>{connected ? "● Connected" : "● Connecting to server..."}</div>
+        <div style={{ color: connected ? 'var(--green)' : 'var(--text-muted)', fontSize: '0.78rem', textAlign: 'center' }}>
+          {connected ? '● Connected' : '● Connecting to server…'}
+        </div>
         <p className="lobby-note">2–4 players · Share a room code or invite link to play</p>
       </div>
     </div>
