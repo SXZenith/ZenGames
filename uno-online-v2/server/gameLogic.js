@@ -1,5 +1,7 @@
 'use strict';
 
+console.log('gameLogic version: 2026-fix');
+
 const COLORS = ['red', 'yellow', 'green', 'blue'];
 const VALUES = ['0','1','2','3','4','5','6','7','8','9','skip','reverse','draw2'];
 
