@@ -5,10 +5,12 @@ const http    = require('http');
 const { Server } = require('socket.io');
 const cors   = require('cors');
 const { v4: uuidv4 } = require('uuid');
-const {
-  createGame, dealCards, playCard, forceDraw, passTurn,
-  drawCards, getPublicState, DEFAULT_SETTINGS,
-} = require('./gameLogic');
+
+// ── UNO-specific logic (used by dedicated UNO socket events) ──
+const unoLogic = require('./gameLogic');
+
+// ── Multi-game registry ──
+const { getGame, listGames } = require('./games/gameRegistry');
 
 const app = express();
 app.use(cors());
@@ -16,7 +18,7 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*', methods: ['GET','POST'] } });
 
-const rooms        = {};  // roomCode -> game
+const rooms        = {};  // roomCode -> room object
 const socketToRoom = {};  // socketId -> { roomCode, playerId }
 
 function generateRoomCode() {
@@ -26,230 +28,246 @@ function generateRoomCode() {
   return code;
 }
 
+/** Send personalised game state to every player in the room */
 function broadcastState(roomCode) {
-  const game = rooms[roomCode];
-  if (!game) return;
-  for (const p of game.players) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  const game = getGame(room.gameType);
+  for (const p of room.players) {
     const s = io.sockets.sockets.get(p.socketId);
-    if (s) s.emit('gameState', getPublicState(game, p.id));
+    if (s) s.emit('gameState', game.getPublicState(room, p.id));
   }
 }
 
+/** Utility: get room + verify it exists and player is in it */
+function getRoom(socketId) {
+  const info = socketToRoom[socketId];
+  if (!info) return {};
+  return { info, room: rooms[info.roomCode] };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log('+ connect', socket.id);
 
-  socket.on('createRoom', ({ playerName }) => {
+  // ── List available games ─────────────────────────────────────────────────
+  socket.on('listGames', () => {
+    socket.emit('gameList', listGames());
+  });
+
+  // ── Create Room ──────────────────────────────────────────────────────────
+  socket.on('createRoom', ({ playerName, gameType = 'uno', settings = {} }) => {
     if (!playerName?.trim()) return socket.emit('error', { message: 'Name required' });
+    let game;
+    try { game = getGame(gameType); }
+    catch(e) { return socket.emit('error', { message: `Unknown game: ${gameType}` }); }
+
     let roomCode;
     do { roomCode = generateRoomCode(); } while (rooms[roomCode]);
-    const game = createGame(roomCode);
+    const room     = game.createRoom(roomCode, settings);
     const playerId = uuidv4();
-    game.players.push({ id: playerId, socketId: socket.id, name: playerName.trim(), hand: [], isConnected: true, score: 0, unoCalled: false });
-    rooms[roomCode] = game;
+    room.players.push({ id:playerId, socketId:socket.id, name:playerName.trim(), isConnected:true, score:0 });
+    rooms[roomCode]         = room;
     socketToRoom[socket.id] = { roomCode, playerId };
     socket.join(roomCode);
-    socket.emit('roomCreated', { roomCode, playerId });
+    socket.emit('roomCreated', { roomCode, playerId, gameType });
     broadcastState(roomCode);
   });
 
+  // ── Join Room ────────────────────────────────────────────────────────────
   socket.on('joinRoom', ({ roomCode, playerName }) => {
     if (!playerName?.trim()) return socket.emit('error', { message: 'Name required' });
     const code = roomCode?.toUpperCase().trim();
-    const game = rooms[code];
-    if (!game)                    return socket.emit('error', { message: 'Room not found — check the code and try again' });
-    if (game.state !== 'waiting') return socket.emit('error', { message: 'Game already in progress' });
-    if (game.players.length >= 4) return socket.emit('error', { message: 'Room is full (max 4 players)' });
-    if (game.players.find(p => p.name.toLowerCase() === playerName.trim().toLowerCase()))
+    const room = rooms[code];
+    if (!room)                    return socket.emit('error', { message: 'Room not found — check the code and try again' });
+    if (room.state !== 'waiting') return socket.emit('error', { message: 'Game already in progress' });
+    const { meta } = getGame(room.gameType);
+    if (room.players.length >= meta.maxPlayers) return socket.emit('error', { message: `Room is full (max ${meta.maxPlayers} players)` });
+    if (room.players.find(p => p.name.toLowerCase() === playerName.trim().toLowerCase()))
                                   return socket.emit('error', { message: 'That name is already taken in this room' });
     const playerId = uuidv4();
-    game.players.push({ id: playerId, socketId: socket.id, name: playerName.trim(), hand: [], isConnected: true, score: 0, unoCalled: false });
-    socketToRoom[socket.id] = { roomCode: code, playerId };
+    room.players.push({ id:playerId, socketId:socket.id, name:playerName.trim(), isConnected:true, score:0 });
+    socketToRoom[socket.id] = { roomCode:code, playerId };
     socket.join(code);
-    socket.emit('roomJoined', { roomCode: code, playerId });
+    socket.emit('roomJoined', { roomCode:code, playerId, gameType:room.gameType });
     broadcastState(code);
   });
 
+  // ── Update Settings (host only, waiting state only) ──────────────────────
   socket.on('updateSettings', (settings) => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game || game.state !== 'waiting') return;
-    if (game.players[0]?.id !== info.playerId) return;
-    game.settings = { ...DEFAULT_SETTINGS, ...settings };
+    const { info, room } = getRoom(socket.id);
+    if (!room || room.state !== 'waiting') return;
+    if (room.players[0]?.id !== info.playerId) return;
+    // Merge with existing — don't allow changing gameType via settings
+    room.settings = { ...room.settings, ...settings };
+    delete room.settings.gameType; // safety: gameType lives on room root only
     broadcastState(info.roomCode);
   });
 
+  // ── Start Game ───────────────────────────────────────────────────────────
   socket.on('startGame', () => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game) return;
-    if (game.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can start' });
-    if (game.players.length < 2)               return socket.emit('error', { message: 'Need at least 2 players' });
-    if (game.state !== 'waiting')              return;
-    game.state = 'playing';
-    dealCards(game);
+    const { info, room } = getRoom(socket.id);
+    if (!room) return;
+    if (room.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can start' });
+    const { meta, startGame } = getGame(room.gameType);
+    if (room.players.length < meta.minPlayers) return socket.emit('error', { message: `Need at least ${meta.minPlayers} players` });
+    if (room.state !== 'waiting') return;
+
+    if (room.gameType === 'uno') {
+      // UNO uses its own init path
+      room.state = 'playing';
+      unoLogic.dealCards(room);
+    } else {
+      startGame(room);
+    }
     broadcastState(info.roomCode);
   });
 
+  // ── Rematch ──────────────────────────────────────────────────────────────
   socket.on('rematch', () => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game || game.state !== 'finished') return;
-    if (game.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can start a rematch' });
-    const fresh = createGame(info.roomCode, game.settings);
-    fresh.players = game.players.map(p => ({ ...p, hand: [], unoCalled: false }));
-    fresh.state = 'playing';
-    rooms[info.roomCode] = fresh;
-    dealCards(fresh);
+    const { info, room } = getRoom(socket.id);
+    if (!room || room.state !== 'finished') return;
+    if (room.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can start a rematch' });
+    const { rematch } = getGame(room.gameType);
+
+    if (room.gameType === 'uno') {
+      // UNO rematch: full fresh game preserving scores
+      const fresh = unoLogic.createGame(info.roomCode, room.settings);
+      fresh.gameType = 'uno';
+      fresh.players  = room.players.map(p => ({ ...p, hand:[], unoCalled:false }));
+      fresh.state    = 'playing';
+      rooms[info.roomCode] = fresh;
+      unoLogic.dealCards(fresh);
+    } else {
+      rematch(room); // other games reset in-place
+    }
     broadcastState(info.roomCode);
   });
+
+  // ── Return to Lobby ──────────────────────────────────────────────────────
+  socket.on('returnToLobby', () => {
+    const { info, room } = getRoom(socket.id);
+    if (!room || room.state !== 'finished') return;
+    if (room.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can return to lobby' });
+    const game  = getGame(room.gameType);
+    const fresh = game.createRoom(info.roomCode, room.settings);
+    fresh.players = room.players.map(p => ({ ...p, hand:[], unoCalled:false, score:0 }));
+    fresh.state   = 'waiting';
+    rooms[info.roomCode] = fresh;
+    broadcastState(info.roomCode);
+  });
+
+  // ── Generic Game Action (Connect4, Checkers, Ludo) ───────────────────────
+  // UNO keeps its dedicated events below for backwards compat.
+  socket.on('gameAction', ({ action, payload = {} }) => {
+    const { info, room } = getRoom(socket.id);
+    if (!room) return;
+    if (room.gameType === 'uno') return; // UNO uses its own events
+    const game   = getGame(room.gameType);
+    const result = game.handleAction(room, info.playerId, action, payload);
+    if (result?.error) return socket.emit('error', { message: result.error });
+    broadcastState(info.roomCode);
+  });
+
+  // ════════════════════════════════════════════════════════════════════════
+  // UNO-SPECIFIC EVENTS (unchanged from before — full isolation)
+  // ════════════════════════════════════════════════════════════════════════
 
   socket.on('playCard', ({ cardId, chosenColor }) => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game) return;
-    const result = playCard(game, info.playerId, cardId, chosenColor);
+    const { info, room } = getRoom(socket.id);
+    if (!room || room.gameType !== 'uno') return;
+    const result = unoLogic.playCard(room, info.playerId, cardId, chosenColor);
     if (result.error) return socket.emit('error', { message: result.error });
-
     if (result.gameOver) {
-      const winner = game.players.find(p => p.name === game.winner);
-      if (winner) winner.score = (winner.score || 0) + 1;
-      broadcastState(info.roomCode);
-      return;
+      const winner = room.players.find(p => p.name === room.winner);
+      if (winner) winner.score = (winner.score||0)+1;
+      broadcastState(info.roomCode); return;
     }
-
-    // UNO vulnerability: just played down to 1 card without calling UNO
-    const player = game.players.find(p => p.id === info.playerId);
+    const player = room.players.find(p => p.id === info.playerId);
     if (player?.hand.length === 1 && !player.unoCalled) {
-      game.unoVulnerable = { playerId: player.id, playerName: player.name };
-      clearTimeout(game._unoTimeout);
-      game._unoTimeout = setTimeout(() => {
-        if (game.unoVulnerable?.playerId === player.id) {
-          game.unoVulnerable = null;
-          broadcastState(info.roomCode);
-        }
+      room.unoVulnerable = { playerId:player.id, playerName:player.name };
+      clearTimeout(room._unoTimeout);
+      room._unoTimeout = setTimeout(() => {
+        if (room.unoVulnerable?.playerId === player.id) { room.unoVulnerable=null; broadcastState(info.roomCode); }
       }, 5000);
-    } else {
-      // Clear stale vulnerability if hand is no longer at 1
-      if (game.unoVulnerable?.playerId === info.playerId) {
-        clearTimeout(game._unoTimeout);
-        game.unoVulnerable = null;
-      }
+    } else if (room.unoVulnerable?.playerId === info.playerId) {
+      clearTimeout(room._unoTimeout); room.unoVulnerable=null;
     }
     broadcastState(info.roomCode);
   });
 
   socket.on('drawCard', () => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game) return;
-    const result = forceDraw(game, info.playerId);
+    const { info, room } = getRoom(socket.id);
+    if (!room || room.gameType !== 'uno') return;
+    const result = unoLogic.forceDraw(room, info.playerId);
     if (result.error) return socket.emit('error', { message: result.error });
-    const player = game.players.find(p => p.id === info.playerId);
+    const player = room.players.find(p => p.id === info.playerId);
     if (player) player.unoCalled = false;
     broadcastState(info.roomCode);
   });
 
   socket.on('passTurn', () => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game) return;
-    const result = passTurn(game, info.playerId);
+    const { info, room } = getRoom(socket.id);
+    if (!room || room.gameType !== 'uno') return;
+    const result = unoLogic.passTurn(room, info.playerId);
     if (result.error) return socket.emit('error', { message: result.error });
     broadcastState(info.roomCode);
   });
 
   socket.on('callUno', () => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game) return;
-    const player = game.players.find(p => p.id === info.playerId);
+    const { info, room } = getRoom(socket.id);
+    if (!room || room.gameType !== 'uno') return;
+    const player = room.players.find(p => p.id === info.playerId);
     if (!player) return;
     player.unoCalled = true;
-    if (game.unoVulnerable?.playerId === player.id) {
-      clearTimeout(game._unoTimeout);
-      game.unoVulnerable = null;
-    }
+    if (room.unoVulnerable?.playerId === player.id) { clearTimeout(room._unoTimeout); room.unoVulnerable=null; }
     broadcastState(info.roomCode);
   });
 
   socket.on('catchUno', ({ targetPlayerId }) => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game) return;
-    if (!game.unoVulnerable || game.unoVulnerable.playerId !== targetPlayerId)
+    const { info, room } = getRoom(socket.id);
+    if (!room || room.gameType !== 'uno') return;
+    if (!room.unoVulnerable || room.unoVulnerable.playerId !== targetPlayerId)
       return socket.emit('error', { message: 'Too late — UNO window has closed' });
-    clearTimeout(game._unoTimeout);
-    game.unoVulnerable = null;
-    drawCards(game, targetPlayerId, 4);
-    const target = game.players.find(p => p.id === targetPlayerId);
-    game.lastAction = { type: 'uno-catch', player: target?.name || '?', count: 4 };
+    clearTimeout(room._unoTimeout);
+    room.unoVulnerable = null;
+    unoLogic.drawCards(room, targetPlayerId, 4);
+    const target = room.players.find(p => p.id === targetPlayerId);
+    room.lastAction = { type:'uno-catch', player:target?.name||'?', count:4 };
     broadcastState(info.roomCode);
   });
 
-  // Return to lobby after game — resets scores, goes back to waiting state
-  socket.on('returnToLobby', () => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game || game.state !== 'finished') return;
-    if (game.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can return to lobby' });
-    // Reset game to waiting state, wipe scores, keep players
-    const fresh = createGame(info.roomCode, game.settings);
-    fresh.players = game.players.map(p => ({ ...p, hand: [], unoCalled: false, score: 0 }));
-    fresh.state = 'waiting';
-    rooms[info.roomCode] = fresh;
-    broadcastState(info.roomCode);
-  });
-
-  // Chat message — broadcast to all players in the room
-  socket.on('chatMessage', ({ text }) => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game) return;
-    const player = game.players.find(p => p.id === info.playerId);
-    if (!player) return;
-    const trimmed = text?.trim().slice(0, 200); // max 200 chars
-    if (!trimmed) return;
-    io.to(info.roomCode).emit('chatMessage', {
-      playerId:   info.playerId,
-      playerName: player.name,
-      text:       trimmed,
-      ts:         Date.now(),
-    });
-  });
-
+  // ── Chat & Reactions (all games) ─────────────────────────────────────────
   socket.on('sendReaction', ({ emoji }) => {
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (!game) return;
-    const player = game.players.find(p => p.id === info.playerId);
+    const { info, room } = getRoom(socket.id);
+    if (!room) return;
+    const player = room.players.find(p => p.id === info.playerId);
     if (!player) return;
-    io.to(info.roomCode).emit('reaction', { playerId: info.playerId, playerName: player.name, emoji });
+    io.to(info.roomCode).emit('reaction', { playerId:info.playerId, playerName:player.name, emoji });
   });
 
+  socket.on('chatMessage', ({ text }) => {
+    const { info, room } = getRoom(socket.id);
+    if (!room) return;
+    const player = room.players.find(p => p.id === info.playerId);
+    if (!player) return;
+    const trimmed = text?.trim().slice(0,200);
+    if (!trimmed) return;
+    io.to(info.roomCode).emit('chatMessage', { playerId:info.playerId, playerName:player.name, text:trimmed, ts:Date.now() });
+  });
+
+  // ── Disconnect / Reconnect ───────────────────────────────────────────────
   socket.on('disconnect', () => {
     console.log('- disconnect', socket.id);
-    const info = socketToRoom[socket.id];
-    if (!info) return;
-    const game = rooms[info.roomCode];
-    if (game) {
-      const player = game.players.find(p => p.id === info.playerId);
+    const { info, room } = getRoom(socket.id);
+    if (room) {
+      const player = room.players.find(p => p.id === info.playerId);
       if (player) player.isConnected = false;
       broadcastState(info.roomCode);
       setTimeout(() => {
-        const g = rooms[info.roomCode];
-        if (g && g.players.every(p => !p.isConnected)) {
-          clearTimeout(g._unoTimeout);
+        const r = rooms[info.roomCode];
+        if (r && r.players.every(p => !p.isConnected)) {
+          clearTimeout(r._unoTimeout);
           delete rooms[info.roomCode];
           console.log('Room cleaned up:', info.roomCode);
         }
@@ -259,19 +277,21 @@ io.on('connection', (socket) => {
   });
 
   socket.on('reconnectPlayer', ({ roomCode, playerId }) => {
-    const game = rooms[roomCode];
-    if (!game) return socket.emit('error', { message: 'Room has expired' });
-    const player = game.players.find(p => p.id === playerId);
+    const room = rooms[roomCode];
+    if (!room) return socket.emit('error', { message: 'Room has expired' });
+    const player = room.players.find(p => p.id === playerId);
     if (!player) return socket.emit('error', { message: 'Player not found' });
     player.socketId    = socket.id;
     player.isConnected = true;
     socketToRoom[socket.id] = { roomCode, playerId };
     socket.join(roomCode);
-    socket.emit('roomJoined', { roomCode, playerId });
+    socket.emit('roomJoined', { roomCode, playerId, gameType:room.gameType });
     broadcastState(roomCode);
   });
 });
 
-app.get('/health', (_, res) => res.json({ ok: true, rooms: Object.keys(rooms).length }));
+app.get('/health', (_, res) => res.json({ ok:true, rooms:Object.keys(rooms).length }));
+app.get('/games',  (_, res) => res.json(listGames()));
+
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, '0.0.0.0', () => console.log(`UNO server on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`ZenGames server on port ${PORT}`));

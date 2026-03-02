@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import Lobby from './components/Lobby';
 import Game  from './components/Game';
+import Connect4Game from './games/connect4/Connect4Game';
+import CheckersGame from './games/checkers/CheckersGame';
+import LudoGame     from './games/ludo/LudoGame';
 import './App.css';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
@@ -23,7 +26,8 @@ export default function App() {
     return code ? code.toUpperCase() : '';
   });
 
-  const inRoom = !!roomCode && !!gameState;
+  const inRoom    = !!roomCode && !!gameState;
+  const gameType  = gameState?.gameType;
 
   useEffect(() => {
     const s = io(SERVER_URL, { transports: ['websocket', 'polling'] });
@@ -37,58 +41,68 @@ export default function App() {
     s.on('gameState',    (state) => setGameState(state));
     s.on('error',        ({ message }) => setError(message));
     s.on('reaction',     (data) => { if (reactionBridge.current?.onReaction) reactionBridge.current.onReaction(data); });
-    s.on('chatMessage',  (data) => { if (chatBridge.current?.onMessage)    chatBridge.current.onMessage(data); });
+    s.on('chatMessage',  (data) => { if (chatBridge.current?.onMessage) chatBridge.current.onMessage(data); });
 
     return () => s.disconnect();
   }, []);
 
-  const createRoom     = useCallback((name)       => { setError(''); socketRef.current?.emit('createRoom', { playerName: name }); }, []);
-  const joinRoom       = useCallback((code, name) => { setError(''); socketRef.current?.emit('joinRoom', { roomCode: code.toUpperCase(), playerName: name }); }, []);
-  const startGame      = useCallback(()           => socketRef.current?.emit('startGame'), []);
-  const rematch        = useCallback(()           => socketRef.current?.emit('rematch'), []);
-  const returnToLobby  = useCallback(()           => socketRef.current?.emit('returnToLobby'), []);
-  const playCard       = useCallback((id, color)  => socketRef.current?.emit('playCard', { cardId: id, chosenColor: color }), []);
-  const drawCard       = useCallback(()           => socketRef.current?.emit('drawCard'), []);
-  const passTurn       = useCallback(()           => socketRef.current?.emit('passTurn'), []);
-  const callUno        = useCallback(()           => socketRef.current?.emit('callUno'), []);
-  const catchUno       = useCallback((tid)        => socketRef.current?.emit('catchUno', { targetPlayerId: tid }), []);
-  const updateSettings = useCallback((s)          => socketRef.current?.emit('updateSettings', s), []);
-  const sendReaction   = useCallback((emoji)      => socketRef.current?.emit('sendReaction', { emoji }), []);
-  const sendChat       = useCallback((text)       => socketRef.current?.emit('chatMessage', { text }), []);
+  // Lobby: passes gameType and settings when creating
+  const createRoom    = useCallback((name, gameType, settings) => {
+    setError('');
+    socketRef.current?.emit('createRoom', { playerName: name, gameType, settings });
+  }, []);
+  const joinRoom      = useCallback((code, name) => { setError(''); socketRef.current?.emit('joinRoom', { roomCode: code.toUpperCase(), playerName: name }); }, []);
+
+  // Shared
+  const startGame     = useCallback(()      => socketRef.current?.emit('startGame'), []);
+  const rematch       = useCallback(()      => socketRef.current?.emit('rematch'), []);
+  const returnToLobby = useCallback(()      => socketRef.current?.emit('returnToLobby'), []);
+  const updateSettings= useCallback((s)    => socketRef.current?.emit('updateSettings', s), []);
+  const sendReaction  = useCallback((emoji) => socketRef.current?.emit('sendReaction', { emoji }), []);
+  const sendChat      = useCallback((text)  => socketRef.current?.emit('chatMessage', { text }), []);
+
+  // Generic game action (Connect4, Checkers, Ludo)
+  const gameAction    = useCallback((action, payload = {}) => socketRef.current?.emit('gameAction', { action, payload }), []);
+
+  // UNO-specific
+  const playCard      = useCallback((id, color) => socketRef.current?.emit('playCard', { cardId: id, chosenColor: color }), []);
+  const drawCard      = useCallback(()           => socketRef.current?.emit('drawCard'), []);
+  const passTurn      = useCallback(()           => socketRef.current?.emit('passTurn'), []);
+  const callUno       = useCallback(()           => socketRef.current?.emit('callUno'), []);
+  const catchUno      = useCallback((tid)        => socketRef.current?.emit('catchUno', { targetPlayerId: tid }), []);
 
   const roomLink = roomCode ? `${window.location.origin}?room=${roomCode}` : '';
+
+  // Shared props every game screen gets
+  const sharedProps = {
+    gameState, playerId, roomCode, roomLink,
+    onStartGame: startGame, onRematch: rematch,
+    onReturnToLobby: returnToLobby,
+    onUpdateSettings: updateSettings,
+    onSendReaction: sendReaction,
+    onSendChat: sendChat,
+    onReaction: reactionBridge.current,
+    onChatMessage: chatBridge.current,
+    error,
+  };
 
   return (
     <div className="app">
       {!inRoom ? (
-        <Lobby
-          onCreateRoom={createRoom}
-          onJoinRoom={joinRoom}
-          error={error}
-          connected={connected}
-          autoJoinCode={autoJoinCode}
-        />
+        <Lobby onCreateRoom={createRoom} onJoinRoom={joinRoom}
+          error={error} connected={connected} autoJoinCode={autoJoinCode} />
+      ) : gameType === 'uno' ? (
+        <Game {...sharedProps}
+          onPlayCard={playCard} onDrawCard={drawCard}
+          onPassTurn={passTurn} onCallUno={callUno} onCatchUno={catchUno} />
+      ) : gameType === 'connect4' ? (
+        <Connect4Game {...sharedProps} onGameAction={gameAction} />
+      ) : gameType === 'checkers' ? (
+        <CheckersGame {...sharedProps} onGameAction={gameAction} />
+      ) : gameType === 'ludo' ? (
+        <LudoGame {...sharedProps} onGameAction={gameAction} />
       ) : (
-        <Game
-          gameState={gameState}
-          playerId={playerId}
-          roomCode={roomCode}
-          roomLink={roomLink}
-          onStartGame={startGame}
-          onPlayCard={playCard}
-          onDrawCard={drawCard}
-          onPassTurn={passTurn}
-          onRematch={rematch}
-          onReturnToLobby={returnToLobby}
-          onCallUno={callUno}
-          onCatchUno={catchUno}
-          onUpdateSettings={updateSettings}
-          onSendReaction={sendReaction}
-          onSendChat={sendChat}
-          onReaction={reactionBridge.current}
-          onChatMessage={chatBridge.current}
-          error={error}
-        />
+        <div style={{color:'white',padding:40}}>Unknown game type: {gameType}</div>
       )}
     </div>
   );

@@ -1,0 +1,100 @@
+.ck-game {
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 18px;
+  padding: 70px 16px 24px;
+  background: var(--bg);
+}
+
+/* ── Header ── */
+.ck-header {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  width: 100%; max-width: 480px;
+}
+.ck-players { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.ck-player {
+  display: flex; align-items: center; gap: 8px; padding: 9px 16px;
+  background: var(--surface); border: 1.5px solid var(--border); border-radius: 50px;
+  font-weight: 700; font-size: .88rem; transition: border-color .2s, box-shadow .2s;
+}
+.ck-player.active {
+  border-color: rgba(76,201,240,.5);
+  box-shadow: 0 0 14px rgba(76,201,240,.15);
+}
+.ck-piece-icon {
+  width: 18px; height: 18px; border-radius: 50%;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.4);
+  flex-shrink: 0;
+}
+.ck-score { font-size: .73rem; color: var(--text-muted); margin-left: 4px; }
+.ck-status { font-size: .95rem; }
+.ck-your-turn { font-weight: 900; color: var(--yellow); }
+.ck-wait { color: var(--text-muted); }
+.ck-must-jump {
+  font-size: .82rem; font-weight: 800; color: var(--red);
+  background: rgba(255,59,82,.12); border: 1px solid rgba(255,59,82,.3);
+  padding: 6px 16px; border-radius: 50px;
+  animation: pulse-red .9s ease-in-out infinite;
+}
+@keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+/* ── Board ── */
+.ck-board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  border: 3px solid #2d3350;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  width: min(480px, 96vw);
+  aspect-ratio: 1;
+}
+.ck-square {
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+  position: relative;
+}
+.ck-square.light { background: #f0d9b5; }
+.ck-square.dark  { background: #b58863; cursor: pointer; }
+.ck-square.dark:hover { background: #c99b78; }
+.ck-square.sel   { background: #7fc97f !important; }
+
+.ck-piece {
+  width: 76%; height: 76%;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.25);
+  box-shadow: 0 3px 10px rgba(0,0,0,.5), inset 0 2px 4px rgba(255,255,255,.2);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s;
+  position: relative;
+  cursor: pointer;
+}
+.ck-square.dark:hover .ck-piece.mine { transform: scale(1.08); }
+.ck-piece.must-jump {
+  box-shadow: 0 0 0 3px var(--red), 0 3px 10px rgba(0,0,0,.5);
+  animation: jump-pulse .7s ease-in-out infinite;
+}
+@keyframes jump-pulse { 0%,100%{box-shadow:0 0 0 3px #ff3b52,0 3px 10px rgba(0,0,0,.5)} 50%{box-shadow:0 0 0 5px #ff3b52,0 3px 10px rgba(0,0,0,.5)} }
+.ck-crown { font-size: 1.1rem; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+
+/* ── Hint ── */
+.ck-hint { font-size: .8rem; color: var(--text-muted); font-style: italic; text-align: center; }
+
+/* Shared settings widget (imported via CSS cascade) */
+.shared-settings { background: var(--surface2); border-radius: 14px; overflow: hidden; }
+.ss-title { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 12px 14px 8px; }
+.ss-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.ss-label { flex: 1; }
+.ss-name  { display: block; font-weight: 700; font-size: .85rem; }
+.ss-desc  { display: block; font-size: .68rem; color: var(--text-muted); margin-top: 1px; }
+.ss-toggle { flex-shrink: 0; padding: 5px 13px; border-radius: 50px; font-size: .75rem; font-weight: 900; cursor: pointer; transition: all .18s; min-width: 48px; }
+.ss-toggle.on  { background: rgba(6,214,160,.15); color: var(--green); border: 1.5px solid rgba(6,214,160,.4); }
+.ss-toggle.off { background: var(--surface); color: var(--text-muted); border: 1.5px solid var(--border); }
+.ss-toggle:disabled { opacity: .55; cursor: not-allowed; }
+.ss-chips { display: flex; gap: 4px; }
+.ss-chip { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: .75rem; font-weight: 700; cursor: pointer; transition: all .15s; }
+.ss-chip:hover:not(:disabled) { border-color: rgba(76,201,240,.4); color: var(--text); }
+.ss-chip.active { background: rgba(76,201,240,.15); border-color: rgba(76,201,240,.5); color: var(--blue); }
+.ss-chip:disabled { opacity: .55; cursor: not-allowed; }
+.ss-note { font-size: .7rem; color: var(--text-muted); text-align: center; padding: 8px; }
