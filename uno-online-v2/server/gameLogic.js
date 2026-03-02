@@ -310,8 +310,8 @@ function getPublicState(game, forPlayerId) {
     players: game.players.map(p => ({
       id:          p.id,
       name:        p.name,
-      handSize:    p.hand.length,
-      hand:        p.id === forPlayerId ? p.hand : undefined,
+      handSize:    p.hand?.length ?? 0,
+      hand:        p.id === forPlayerId ? (p.hand ?? []) : undefined,
       isConnected: p.isConnected,
       score:       p.score || 0,
       unoCalled:   p.unoCalled || false,

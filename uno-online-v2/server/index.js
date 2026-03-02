@@ -66,7 +66,7 @@ io.on('connection', (socket) => {
     do { roomCode = generateRoomCode(); } while (rooms[roomCode]);
     const room     = game.createRoom(roomCode, settings);
     const playerId = uuidv4();
-    room.players.push({ id:playerId, socketId:socket.id, name:playerName.trim(), isConnected:true, score:0 });
+    room.players.push({ id:playerId, socketId:socket.id, name:playerName.trim(), isConnected:true, score:0, hand:[], unoCalled:false });
     rooms[roomCode]         = room;
     socketToRoom[socket.id] = { roomCode, playerId };
     socket.join(roomCode);
@@ -86,7 +86,7 @@ io.on('connection', (socket) => {
     if (room.players.find(p => p.name.toLowerCase() === playerName.trim().toLowerCase()))
                                   return socket.emit('error', { message: 'That name is already taken in this room' });
     const playerId = uuidv4();
-    room.players.push({ id:playerId, socketId:socket.id, name:playerName.trim(), isConnected:true, score:0 });
+    room.players.push({ id:playerId, socketId:socket.id, name:playerName.trim(), isConnected:true, score:0, hand:[], unoCalled:false });
     socketToRoom[socket.id] = { roomCode:code, playerId };
     socket.join(code);
     socket.emit('roomJoined', { roomCode:code, playerId, gameType:room.gameType });
