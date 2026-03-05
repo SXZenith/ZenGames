@@ -1,13 +1,164 @@
 /**
  * SharedRoom.jsx
- * Reusable WaitingRoom and GameOver screens used by every game.
- * Each game passes its own settings renderer for the waiting room.
+ * Shared WaitingRoom, GameOver, Chat hook — used by Connect4, Checkers, Ludo.
+ * UNO uses its own Game.jsx but imports the GamePicker from here.
  */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import './SharedRoom.css';
 
 // ─────────────────────────────────────────────────────────────────────
-// CHAT (injected into every game screen)
+// GAME DEFINITIONS (single source of truth for the picker)
+// ─────────────────────────────────────────────────────────────────────
+export const GAME_LIST = [
+  {
+    id: 'uno', name: 'UNO', emoji: '🃏',
+    description: 'Match colors & numbers. First to empty their hand wins!',
+    players: '2–4', minPlayers: 2, maxPlayers: 4,
+    settings: [
+      { key:'stackDraw2',       label:'Stack +2',          type:'toggle', default:true,  desc:'Play +2 on +2 to pass the penalty' },
+      { key:'stackDraw4',       label:'Stack +4',          type:'toggle', default:true,  desc:'Play +4 on +4 to pass the penalty' },
+      { key:'drawUntilPlayable',label:'Draw Until Playable',type:'toggle',default:false, desc:'Keep drawing until you get a playable card' },
+      { key:'freeWild4',        label:'Free Wild +4',       type:'toggle', default:false, desc:'Play Wild Draw 4 any time' },
+      { key:'pickTimer',        label:'Turn Timer',         type:'timer',  default:0 },
+    ],
+  },
+  {
+    id: 'connect4', name: 'Connect 4', emoji: '🔴',
+    description: 'Drop discs to connect 4 in a row!',
+    players: '2', minPlayers: 2, maxPlayers: 2,
+    settings: [
+      { key:'allowUndo', label:'Allow Undo', type:'toggle', default:false, desc:'Take back your last move' },
+      { key:'winStreak', label:'Win Streak', type:'chips',  default:4, options:[3,4,5], desc:'Discs in a row to win' },
+    ],
+  },
+  {
+    id: 'checkers', name: 'Checkers', emoji: '⚫',
+    description: "Capture all your opponent's pieces to win!",
+    players: '2', minPlayers: 2, maxPlayers: 2,
+    settings: [
+      { key:'mandatoryCapture', label:'Must Capture', type:'toggle', default:true,  desc:'You must capture if possible' },
+      { key:'flyingKings',      label:'Flying Kings', type:'toggle', default:false, desc:'Kings move multiple squares' },
+    ],
+  },
+  {
+    id: 'ludo', name: 'Ludo', emoji: '🎲',
+    description: 'Race your tokens home, send opponents back!',
+    players: '2–4', minPlayers: 2, maxPlayers: 4,
+    settings: [
+      { key:'safeSquares', label:'Safe Squares',   type:'toggle', default:true,  desc:'Protected squares — no captures' },
+      { key:'extraTurn6',  label:'6 = Extra Turn', type:'toggle', default:true,  desc:'Rolling 6 grants a bonus roll' },
+      { key:'mustUse6',    label:'Need 6 to Enter',type:'toggle', default:true,  desc:'Must roll 6 to enter the board' },
+    ],
+  },
+];
+
+const TIMER_OPTIONS = [0,10,15,20,30];
+
+export function defaultSettingsFor(gameId) {
+  const game = GAME_LIST.find(g => g.id === gameId);
+  if (!game) return {};
+  const s = {};
+  game.settings.forEach(opt => { s[opt.key] = opt.default; });
+  return s;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// GAME PICKER — embedded in waiting room for host to switch games
+// ─────────────────────────────────────────────────────────────────────
+export function GamePicker({ currentGameId, settings, onChangeGame, isHost }) {
+  const [localGameId,  setLocalGameId]  = useState(currentGameId);
+  const [localSettings, setLocalSettings] = useState(settings);
+
+  // When server confirms game changed, sync local state
+  useEffect(() => {
+    setLocalGameId(currentGameId);
+    setLocalSettings(settings);
+  }, [currentGameId]);
+
+  const selectGame = (g) => {
+    if (!isHost) return;
+    const newSettings = defaultSettingsFor(g.id);
+    setLocalGameId(g.id);
+    setLocalSettings(newSettings);
+    onChangeGame(g.id, newSettings);
+  };
+
+  const updateSetting = (key, val) => {
+    if (!isHost) return;
+    const newSettings = { ...localSettings, [key]: val };
+    setLocalSettings(newSettings);
+    onChangeGame(localGameId, newSettings);
+  };
+
+  const selectedGame = GAME_LIST.find(g => g.id === localGameId);
+
+  return (
+    <div className="game-picker-section">
+      <div className="gps-label">Game</div>
+      <div className="game-picker-grid">
+        {GAME_LIST.map(g => (
+          <button key={g.id} type="button"
+            className={`game-tile ${localGameId === g.id ? 'selected' : ''} ${!isHost ? 'readonly' : ''}`}
+            onClick={() => selectGame(g)}>
+            <span className="game-tile-emoji">{g.emoji}</span>
+            <span className="game-tile-name">{g.name}</span>
+            <span className="game-tile-players">{g.players}p</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Per-game settings */}
+      {selectedGame && (
+        <div className="gps-settings">
+          {selectedGame.settings.map(opt => (
+            <div key={opt.key} className="gps-row">
+              <div className="gps-label-wrap">
+                <span className="gps-name">{opt.label}</span>
+                {opt.desc && <span className="gps-desc">{opt.desc}</span>}
+              </div>
+              {opt.type === 'toggle' && (
+                <button type="button"
+                  className={`gps-toggle ${localSettings[opt.key] ? 'on' : 'off'}`}
+                  onClick={() => updateSetting(opt.key, !localSettings[opt.key])}
+                  disabled={!isHost}>
+                  {localSettings[opt.key] ? 'ON' : 'OFF'}
+                </button>
+              )}
+              {opt.type === 'timer' && (
+                <div className="gps-chips">
+                  {TIMER_OPTIONS.map(t => (
+                    <button key={t} type="button"
+                      className={`gps-chip ${localSettings[opt.key] === t ? 'active' : ''}`}
+                      onClick={() => isHost && updateSetting(opt.key, t)}
+                      disabled={!isHost}>
+                      {t === 0 ? 'Off' : `${t}s`}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {opt.type === 'chips' && (
+                <div className="gps-chips">
+                  {opt.options.map(v => (
+                    <button key={v} type="button"
+                      className={`gps-chip ${localSettings[opt.key] === v ? 'active' : ''}`}
+                      onClick={() => isHost && updateSetting(opt.key, v)}
+                      disabled={!isHost}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {!isHost && <p className="gps-note">Only the host can change the game</p>}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// CHAT HOOK
 // ─────────────────────────────────────────────────────────────────────
 const CHAT_HIDE_MS = 8000;
 
@@ -84,7 +235,7 @@ export function useChat(onChatMessage, onSendChat) {
     </div>
   );
 
-  return { ChatUI, showChat };
+  return { ChatUI, showChat, chatMessages };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -92,27 +243,24 @@ export function useChat(onChatMessage, onSendChat) {
 // ─────────────────────────────────────────────────────────────────────
 export function WaitingRoom({
   gameState, playerId, roomCode, roomLink,
-  onStartGame, onUpdateSettings,
-  SettingsComponent, // optional: renders game-specific settings
+  onStartGame, onChangeGame,
   error,
 }) {
   const [copied, setCopied] = useState(false);
   const isHost = gameState.players[0]?.id === playerId;
-  const { meta } = gameState; // might be undefined for UNO-style states
+  const minPlayers = gameState.minPlayers ?? 2;
 
   const copy = (text) => navigator.clipboard.writeText(text).then(() => {
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   });
 
-  const minPlayers = gameState.minPlayers ?? 2;
-
   return (
     <div className="waiting-room">
       <div className="waiting-card">
         <div className="waiting-header">
-          <div className="wh-game-badge">{gameState.gameEmoji ?? '🎮'}</div>
-          <h2>{gameState.gameName ?? 'Waiting for players…'}</h2>
-          <p className="waiting-sub">{gameState.players.length} / {gameState.maxPlayers ?? 4} players joined</p>
+          <div className="zen-logo-small">ZG</div>
+          <h2>Game Lobby</h2>
+          <p className="waiting-sub">{gameState.players.length} / {gameState.maxPlayers ?? 4} players</p>
         </div>
 
         <div className="room-code-block">
@@ -130,7 +278,7 @@ export function WaitingRoom({
               <div className="player-avatar" style={{ background: `hsl(${i * 90},60%,50%)` }}>{p.name[0].toUpperCase()}</div>
               <span className="player-slot-name">{p.name}{p.id === playerId ? ' (you)' : ''}</span>
               {i === 0 && <span className="host-badge">Host</span>}
-              {!p.isConnected && <span className="dc-badge">Disconnected</span>}
+              {!p.isConnected && <span className="dc-badge">✕</span>}
             </div>
           ))}
           {Array.from({ length: Math.max(0, (gameState.maxPlayers ?? 4) - gameState.players.length) }).map((_, i) => (
@@ -141,13 +289,20 @@ export function WaitingRoom({
           ))}
         </div>
 
-        {SettingsComponent && isHost && (
-          <SettingsComponent settings={gameState.settings} onChange={onUpdateSettings} isHost={isHost} />
-        )}
+        {/* Game picker — host can switch games, everyone sees the current pick */}
+        <GamePicker
+          currentGameId={gameState.gameType}
+          settings={gameState.settings}
+          onChangeGame={onChangeGame}
+          isHost={isHost}
+        />
 
         {isHost
-          ? <button className="btn-primary" onClick={onStartGame} disabled={gameState.players.length < minPlayers}>
-              {gameState.players.length < minPlayers ? `Need ${minPlayers - gameState.players.length} more player${minPlayers - gameState.players.length > 1 ? 's' : ''}` : 'Start Game →'}
+          ? <button className="btn-primary" onClick={onStartGame}
+              disabled={gameState.players.length < minPlayers}>
+              {gameState.players.length < minPlayers
+                ? `Need ${minPlayers - gameState.players.length} more player${minPlayers - gameState.players.length > 1 ? 's' : ''}`
+                : `Play ${GAME_LIST.find(g=>g.id===gameState.gameType)?.name ?? 'Game'} →`}
             </button>
           : <p className="waiting-for-host">Waiting for host to start…</p>
         }
@@ -195,7 +350,7 @@ export function GameOver({ gameState, playerId, onRematch, onReturnToLobby }) {
             <p className="waiting-for-host" style={{ marginTop: 0 }}>Waiting for host…</p>
           )}
         </div>
-        {isHost && <p className="go-exit-note">Back to Lobby resets scores for everyone.</p>}
+        {isHost && <p className="go-exit-note">Back to Lobby keeps everyone connected. Scores reset.</p>}
       </div>
     </div>
   );

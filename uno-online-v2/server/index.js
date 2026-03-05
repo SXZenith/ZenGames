@@ -144,7 +144,7 @@ io.on('connection', (socket) => {
     broadcastState(info.roomCode);
   });
 
-  // ── Return to Lobby ──────────────────────────────────────────────────────
+  // ── Return to Lobby (same game, reset scores) ──────────────────────────
   socket.on('returnToLobby', () => {
     const { info, room } = getRoom(socket.id);
     if (!room || room.state !== 'finished') return;
@@ -152,6 +152,22 @@ io.on('connection', (socket) => {
     const game  = getGame(room.gameType);
     const fresh = game.createRoom(info.roomCode, room.settings);
     fresh.players = room.players.map(p => ({ ...p, hand:[], unoCalled:false, score:0 }));
+    fresh.state   = 'waiting';
+    rooms[info.roomCode] = fresh;
+    broadcastState(info.roomCode);
+  });
+
+  // ── Change Game (host only, waiting state) ───────────────────────────────
+  // Switches game type in-place — players stay connected, scores preserved.
+  socket.on('changeGame', ({ gameType, settings = {} }) => {
+    const { info, room } = getRoom(socket.id);
+    if (!room || room.state !== 'waiting') return socket.emit('error', { message: 'Can only change game in the lobby' });
+    if (room.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can change the game' });
+    let game;
+    try { game = getGame(gameType); }
+    catch(e) { return socket.emit('error', { message: `Unknown game: ${gameType}` }); }
+    const fresh = game.createRoom(info.roomCode, settings);
+    fresh.players = room.players.map(p => ({ ...p, hand:[], unoCalled:false })); // keep scores
     fresh.state   = 'waiting';
     rooms[info.roomCode] = fresh;
     broadcastState(info.roomCode);

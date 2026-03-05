@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WaitingRoom, GameOver, useChat } from '../SharedRoom';
+import { WaitingRoom, GameOver } from '../SharedRoom';
 import '../SharedRoom.css';
 import './Connect4Game.css';
 
@@ -9,12 +9,10 @@ const ROWS = 6;
 export default function Connect4Game({
   gameState, playerId, roomCode, roomLink,
   onStartGame, onRematch, onReturnToLobby,
-  onUpdateSettings, onSendReaction, onSendChat,
+  onUpdateSettings, onChangeGame, onSendReaction, onSendChat,
   onReaction, onChatMessage, onGameAction, error,
 }) {
   const [hoverCol, setHoverCol] = useState(null);
-  const { ChatUI } = useChat(onChatMessage, onSendChat);
-
   const me        = gameState.players.find(p => p.id === playerId);
   const isHost    = gameState.players[0]?.id === playerId;
   const isMyTurn  = gameState.players[gameState.currentPlayerIndex]?.id === playerId;
@@ -32,8 +30,7 @@ export default function Connect4Game({
   if (gameState.state === 'waiting') {
     return <WaitingRoom gameState={augmented} playerId={playerId}
       roomCode={roomCode} roomLink={roomLink}
-      onStartGame={onStartGame} onUpdateSettings={onUpdateSettings}
-      SettingsComponent={Connect4Settings} error={error} />;
+      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error} />;
   }
 
   if (gameState.state === 'finished') {
@@ -49,8 +46,6 @@ export default function Connect4Game({
 
   return (
     <div className="c4-game">
-      <ChatUI playerId={playerId} />
-
       <div className="c4-header">
         <div className="c4-players">
           {gameState.players.map(p => (

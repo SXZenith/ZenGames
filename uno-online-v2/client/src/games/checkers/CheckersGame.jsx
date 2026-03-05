@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
-import { WaitingRoom, GameOver, useChat } from '../SharedRoom';
+import { WaitingRoom, GameOver } from '../SharedRoom';
 import '../SharedRoom.css';
 import './CheckersGame.css';
 
 export default function CheckersGame({
   gameState, playerId, roomCode, roomLink,
   onStartGame, onRematch, onReturnToLobby,
-  onUpdateSettings, onSendChat, onChatMessage, onGameAction, error,
+  onUpdateSettings, onChangeGame, onSendChat, onChatMessage, onGameAction, error,
 }) {
   const [selected, setSelected] = useState(null); // [row, col] of selected piece
-  const { ChatUI } = useChat(onChatMessage, onSendChat);
-
   const me       = gameState.players.find(p => p.id === playerId);
   const isHost   = gameState.players[0]?.id === playerId;
   const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === playerId;
@@ -22,8 +20,7 @@ export default function CheckersGame({
   if (gameState.state === 'waiting') {
     return <WaitingRoom gameState={augmented} playerId={playerId}
       roomCode={roomCode} roomLink={roomLink}
-      onStartGame={onStartGame} onUpdateSettings={onUpdateSettings}
-      SettingsComponent={CheckersSettings} error={error} />;
+      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error} />;
   }
   if (gameState.state === 'finished') {
     return <GameOver gameState={gameState} playerId={playerId} onRematch={onRematch} onReturnToLobby={onReturnToLobby} />;
@@ -48,8 +45,6 @@ export default function CheckersGame({
 
   return (
     <div className="ck-game">
-      <ChatUI playerId={playerId} />
-
       <div className="ck-header">
         <div className="ck-players">
           {gameState.players.map(p => (

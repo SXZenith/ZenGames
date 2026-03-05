@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WaitingRoom, GameOver, useChat } from '../SharedRoom';
+import { WaitingRoom, GameOver } from '../SharedRoom';
 import '../SharedRoom.css';
 import './LudoGame.css';
 
@@ -13,10 +13,8 @@ const HOME_LABELS   = ['▲','◀','▼','▶']; // directional hints
 export default function LudoGame({
   gameState, playerId, roomCode, roomLink,
   onStartGame, onRematch, onReturnToLobby,
-  onUpdateSettings, onSendChat, onChatMessage, onGameAction, error,
+  onUpdateSettings, onChangeGame, onSendChat, onChatMessage, onGameAction, error,
 }) {
-  const { ChatUI } = useChat(onChatMessage, onSendChat);
-
   const me       = gameState.players.find(p => p.id === playerId);
   const isHost   = gameState.players[0]?.id === playerId;
   const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === playerId;
@@ -33,8 +31,7 @@ export default function LudoGame({
   if (gameState.state === 'waiting') {
     return <WaitingRoom gameState={augmented} playerId={playerId}
       roomCode={roomCode} roomLink={roomLink}
-      onStartGame={onStartGame} onUpdateSettings={onUpdateSettings}
-      SettingsComponent={LudoSettings} error={error} />;
+      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error} />;
   }
   if (gameState.state === 'finished') {
     return <GameOver gameState={gameState} playerId={playerId}
@@ -50,8 +47,6 @@ export default function LudoGame({
 
   return (
     <div className="ludo-game">
-      <ChatUI playerId={playerId} />
-
       {/* Turn indicator + dice */}
       <div className="ludo-header">
         <div className="ludo-status">

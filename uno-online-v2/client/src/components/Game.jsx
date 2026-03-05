@@ -4,10 +4,10 @@ import ColorPicker from './ColorPicker';
 import LobbySettings from './LobbySettings';
 import {
   soundCardPlace, soundCardDraw, soundWild, soundUno, soundCatch,
-  soundSkip, soundDraw2, soundYourTurn, soundReaction,
-  isMuted, toggleMute,
+  soundSkip, soundDraw2, soundYourTurn,
 } from '../sounds';
 import './Game.css';
+import { WaitingRoom } from '../games/SharedRoom';
 
 const COLOR_NAMES = { red:'#ff3b52', yellow:'#ffd93d', green:'#06d6a0', blue:'#4cc9f0' };
 const REACTIONS   = ['🔥','😂','😤','🎉','💀','👍'];
@@ -35,30 +35,19 @@ export default function Game({
   gameState, playerId, roomCode, roomLink,
   onStartGame, onPlayCard, onDrawCard, onPassTurn, onRematch, onReturnToLobby,
   onCallUno, onCatchUno, onUpdateSettings, onSendReaction, onSendChat,
-  onReaction, onChatMessage,
+  onChangeGame,
   error,
 }) {
   const [selectedCard,      setSelectedCard]      = useState(null);
   const [pendingWildCard,   setPendingWildCard]   = useState(null);
   const [copied,            setCopied]            = useState(false);
   const [timerLeft,         setTimerLeft]         = useState(null);
-  const [mutedState,        setMutedState]        = useState(isMuted());
-  const [showScoreboard,    setShowScoreboard]    = useState(false);
-  const [showReactions,     setShowReactions]     = useState(false);
-  const [floatingReactions, setFloatingReactions] = useState([]);
-  const [turnFlash,         setTurnFlash]         = useState(false);
   const [deckShake,         setDeckShake]         = useState(false);
   const [unoTimer,          setUnoTimer]          = useState(null);
-  // Chat
-  const [showChat,          setShowChat]          = useState(false);
-  const [chatMessages,      setChatMessages]      = useState([]);
-  const [chatInput,         setChatInput]         = useState('');
-  const [chatUnread,        setChatUnread]        = useState(0);
 
+  const [turnFlash, setTurnFlash] = useState(false);
   const timerRef        = useRef(null);
   const unoTimerRef     = useRef(null);
-  const chatHideRef     = useRef(null);
-  const chatEndRef      = useRef(null);
   const prevTurnRef     = useRef(null);
   const prevLastAction  = useRef(null);
   const prevUnoVuln     = useRef(null);
@@ -75,7 +64,6 @@ export default function Game({
   const isFinished    = gameState.state === 'finished';
   const drawingStreak = gameState.drawingStreak === true && isMyTurn;
 
-  const handleMuteToggle = () => setMutedState(toggleMute());
 
   // ── Sounds ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -144,50 +132,6 @@ export default function Game({
   }, []);
   useEffect(() => { if (onReaction) onReaction.onReaction = handleIncomingReaction; });
 
-  // ── Incoming chat messages ────────────────────────────────────────────────
-  const handleIncomingChat = useCallback((msg) => {
-    setChatMessages(prev => [...prev.slice(-99), msg]); // keep last 100
-    // Auto-show chat panel briefly, reset hide timer
-    setShowChat(true);
-    clearTimeout(chatHideRef.current);
-    chatHideRef.current = setTimeout(() => setShowChat(false), CHAT_HIDE_MS);
-    // Unread badge if panel is closed
-    setShowChat(prev => {
-      if (!prev) setChatUnread(u => u + 1);
-      return prev;
-    });
-  }, []);
-  useEffect(() => { if (onChatMessage) onChatMessage.onMessage = handleIncomingChat; });
-
-  // Scroll chat to bottom when new messages arrive
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
-
-  // Clear unread when panel opens
-  useEffect(() => { if (showChat) setChatUnread(0); }, [showChat]);
-
-  const openChat = () => {
-    setShowChat(s => {
-      const next = !s;
-      if (next) {
-        setChatUnread(0);
-        clearTimeout(chatHideRef.current);
-        chatHideRef.current = setTimeout(() => setShowChat(false), CHAT_HIDE_MS);
-      }
-      return next;
-    });
-    setShowReactions(false);
-  };
-
-  const handleChatSend = (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    onSendChat(chatInput.trim());
-    setChatInput('');
-    // Reset hide timer on send
-    clearTimeout(chatHideRef.current);
-    chatHideRef.current = setTimeout(() => setShowChat(false), CHAT_HIDE_MS);
-  };
-
   // ── Clipboard ─────────────────────────────────────────────────────────────
   const copyCode = useCallback(() => navigator.clipboard.writeText(roomCode).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }), [roomCode]);
   const copyLink = useCallback(() => navigator.clipboard.writeText(roomLink).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }), [roomLink]);
@@ -205,55 +149,14 @@ export default function Game({
   const handleColorChosen = (color) => {
     if (pendingWildCard) { onPlayCard(pendingWildCard.id, color); setPendingWildCard(null); }
   };
-  const sendReaction = (emoji) => { soundReaction(); onSendReaction(emoji); setShowReactions(false); };
 
   // ════════════════════════════════════════════════════════════════════════
   // WAITING ROOM
   // ════════════════════════════════════════════════════════════════════════
   if (gameState.state === 'waiting') {
-    return (
-      <div className="waiting-room">
-        <div className="waiting-card">
-          <div className="waiting-header">
-            <div className="uno-logo-small">UNO</div>
-            <h2>Waiting for players…</h2>
-            <p className="waiting-sub">{gameState.players.length}/4 players joined</p>
-          </div>
-          <div className="room-code-block">
-            <span className="rc-label">Room Code</span>
-            <div className="rc-code" onClick={copyCode}>{roomCode}</div>
-            <div className="rc-actions">
-              <button className="btn-secondary small" onClick={copyCode}>{copied?'✓ Copied!':'Copy Code'}</button>
-              <button className="btn-secondary small" onClick={copyLink}>{copied?'✓ Copied!':'🔗 Copy Link'}</button>
-            </div>
-          </div>
-          <div className="player-list">
-            {gameState.players.map((p,i) => (
-              <div key={p.id} className={`player-slot filled ${p.id===playerId?'me':''}`}>
-                <div className="player-avatar" style={{background:`hsl(${i*90},60%,50%)`}}>{p.name[0].toUpperCase()}</div>
-                <span className="player-slot-name">{p.name}{p.id===playerId?' (you)':''}</span>
-                {i===0 && <span className="host-badge">Host</span>}
-                {!p.isConnected && <span className="dc-badge">Disconnected</span>}
-              </div>
-            ))}
-            {Array.from({length:4-gameState.players.length}).map((_,i) => (
-              <div key={i} className="player-slot empty">
-                <div className="player-avatar empty-avatar">?</div>
-                <span className="player-slot-name">Waiting…</span>
-              </div>
-            ))}
-          </div>
-          <LobbySettings settings={gameState.settings} onChange={onUpdateSettings} isHost={isHost} />
-          {isHost
-            ? <button className="btn-primary" onClick={onStartGame} disabled={gameState.players.length<2}>
-                {gameState.players.length<2?'Need 1 more player':'Start Game →'}
-              </button>
-            : <p className="waiting-for-host">Waiting for host to start…</p>
-          }
-          {error && <div className="error-msg">⚠ {error}</div>}
-        </div>
-      </div>
-    );
+    return <WaitingRoom gameState={{...gameState, maxPlayers:4}}
+      playerId={playerId} roomCode={roomCode} roomLink={roomLink}
+      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error} />;
   }
 
   // ════════════════════════════════════════════════════════════════════════
@@ -347,32 +250,6 @@ export default function Game({
         </div>
       )}
 
-      {floatingReactions.map(r => {
-        const pi = gameState.players.findIndex(p => p.id === r.playerId);
-        return (
-          <div key={r.id} className="floating-reaction" style={{left:`${12+pi*20}%`}}>
-            <span className="fr-name">{r.playerName}</span>
-            <span className="fr-emoji">{r.emoji}</span>
-          </div>
-        );
-      })}
-
-      {showScoreboard && (
-        <div className="mid-scoreboard" onClick={() => setShowScoreboard(false)}>
-          <div className="mid-sb-card" onClick={e => e.stopPropagation()}>
-            <div className="mid-sb-title">🏆 Scores</div>
-            {[...gameState.players].sort((a,b)=>b.score-a.score).map((p,i) => (
-              <div key={p.id} className={`mid-sb-row ${p.id===playerId?'me':''}`}>
-                <span className="mid-sb-rank">#{i+1}</span>
-                <span className="mid-sb-name">{p.name}</span>
-                <span className="mid-sb-score">{p.score} W</span>
-              </div>
-            ))}
-            <button className="btn-secondary small" style={{marginTop:12,width:'100%'}} onClick={() => setShowScoreboard(false)}>Close</button>
-          </div>
-        </div>
-      )}
-
       {/* ── HUD: top-right ── */}
       <div className="hud-buttons">
         <button className="hud-btn" onClick={handleMuteToggle} title={mutedState?'Unmute':'Mute'}>
@@ -387,49 +264,6 @@ export default function Game({
             </div>
           )}
         </div>
-      </div>
-
-      {/* ── Chat: top-left ── */}
-      <div className="chat-hud" onClick={e => e.stopPropagation()}>
-        <button className="hud-btn chat-toggle-btn" onClick={openChat} title="Chat">
-          💬
-          {chatUnread > 0 && !showChat && <span className="chat-unread">{chatUnread}</span>}
-        </button>
-
-        {showChat && (
-          <div className="chat-panel">
-            <div className="chat-header">
-              <span>Chat</span>
-              <button className="chat-close" onClick={() => setShowChat(false)}>✕</button>
-            </div>
-            <div className="chat-messages">
-              {chatMessages.length === 0 && (
-                <div className="chat-empty">No messages yet…</div>
-              )}
-              {chatMessages.map((msg, i) => {
-                const isMe = msg.playerId === playerId;
-                return (
-                  <div key={i} className={`chat-msg ${isMe?'chat-msg-me':''}`}>
-                    {!isMe && <div className="chat-sender">{msg.playerName}</div>}
-                    <div className="chat-bubble">{msg.text}</div>
-                  </div>
-                );
-              })}
-              <div ref={chatEndRef} />
-            </div>
-            <form className="chat-input-row" onSubmit={handleChatSend}>
-              <input
-                className="chat-input"
-                placeholder="Say something…"
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                maxLength={200}
-                autoFocus
-              />
-              <button className="chat-send" type="submit" disabled={!chatInput.trim()}>➤</button>
-            </form>
-          </div>
-        )}
       </div>
 
       {/* ── Opponents ── */}
