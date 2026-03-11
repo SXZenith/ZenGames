@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { UnoCard, CardBack } from './Card';
 import ColorPicker from './ColorPicker';
-import LobbySettings from './LobbySettings';
 import {
   soundCardPlace, soundCardDraw, soundWild, soundUno, soundCatch,
   soundSkip, soundDraw2, soundYourTurn,
@@ -10,8 +9,6 @@ import './Game.css';
 import { WaitingRoom } from '../games/SharedRoom';
 
 const COLOR_NAMES = { red:'#ff3b52', yellow:'#ffd93d', green:'#06d6a0', blue:'#4cc9f0' };
-const REACTIONS   = ['🔥','😂','😤','🎉','💀','👍'];
-const CHAT_HIDE_MS = 8000; // chat panel auto-hides after 8s of no new messages
 
 function getFanStyle(index, total, isSelected) {
   if (total === 0) return {};
@@ -123,15 +120,6 @@ export default function Game({
     prevUnoVuln.current = vuln;
   }, [gameState.unoVulnerable]);
 
-  // ── Incoming reactions ────────────────────────────────────────────────────
-  const handleIncomingReaction = useCallback((reaction) => {
-    soundReaction();
-    const id = Date.now() + Math.random();
-    setFloatingReactions(prev => [...prev, { ...reaction, id }]);
-    setTimeout(() => setFloatingReactions(prev => prev.filter(r => r.id !== id)), 2500);
-  }, []);
-  useEffect(() => { if (onReaction) onReaction.onReaction = handleIncomingReaction; });
-
   // ── Clipboard ─────────────────────────────────────────────────────────────
   const copyCode = useCallback(() => navigator.clipboard.writeText(roomCode).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }), [roomCode]);
   const copyLink = useCallback(() => navigator.clipboard.writeText(roomLink).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }), [roomLink]);
@@ -241,7 +229,7 @@ export default function Game({
   const drawLabel = gameState.pendingDraw > 0 ? `Draw ${gameState.pendingDraw}` : 'Draw';
 
   return (
-    <div className="game" onClick={() => { if(showReactions) setShowReactions(false); }}>
+    <div className="game">
       {pendingWildCard && <ColorPicker onChoose={handleColorChosen} />}
 
       {turnFlash && (
@@ -249,22 +237,6 @@ export default function Game({
           <div className="turn-flash-text">YOUR TURN</div>
         </div>
       )}
-
-      {/* ── HUD: top-right ── */}
-      <div className="hud-buttons">
-        <button className="hud-btn" onClick={handleMuteToggle} title={mutedState?'Unmute':'Mute'}>
-          {mutedState?'🔇':'🔊'}
-        </button>
-        <button className="hud-btn" onClick={() => setShowScoreboard(s=>!s)} title="Scores">🏆</button>
-        <div className="reaction-wrapper" onClick={e => e.stopPropagation()}>
-          <button className="hud-btn" onClick={() => { setShowReactions(s=>!s); setShowChat(false); }} title="React">😄</button>
-          {showReactions && (
-            <div className="reaction-picker">
-              {REACTIONS.map(e => <button key={e} className="react-btn" onClick={() => sendReaction(e)}>{e}</button>)}
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* ── Opponents ── */}
       <div className="opponents-row">

@@ -1,25 +1,25 @@
 /**
  * SharedRoom.jsx
- * Shared WaitingRoom, GameOver, Chat hook — used by Connect4, Checkers, Ludo.
+ * Shared WaitingRoom, GameOver, Chat hook — used by Connect4, Checkers, Yahtzee.
  * UNO uses its own Game.jsx but imports the GamePicker from here.
  */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import './SharedRoom.css';
 
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // GAME DEFINITIONS (single source of truth for the picker)
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 export const GAME_LIST = [
   {
     id: 'uno', name: 'UNO', emoji: '🃏',
     description: 'Match colors & numbers. First to empty their hand wins!',
     players: '2–4', minPlayers: 2, maxPlayers: 4,
     settings: [
-      { key:'stackDraw2',       label:'Stack +2',          type:'toggle', default:true,  desc:'Play +2 on +2 to pass the penalty' },
-      { key:'stackDraw4',       label:'Stack +4',          type:'toggle', default:true,  desc:'Play +4 on +4 to pass the penalty' },
-      { key:'drawUntilPlayable',label:'Draw Until Playable',type:'toggle',default:false, desc:'Keep drawing until you get a playable card' },
-      { key:'freeWild4',        label:'Free Wild +4',       type:'toggle', default:false, desc:'Play Wild Draw 4 any time' },
-      { key:'pickTimer',        label:'Turn Timer',         type:'timer',  default:0 },
+      { key:'stackDraw2',        label:'Stack +2',           type:'toggle', default:true,  desc:'Play +2 on +2 to pass the penalty' },
+      { key:'stackDraw4',        label:'Stack +4',           type:'toggle', default:true,  desc:'Play +4 on +4 to pass the penalty' },
+      { key:'drawUntilPlayable', label:'Draw Until Playable', type:'toggle', default:false, desc:'Keep drawing until you get a playable card' },
+      { key:'freeWild4',         label:'Free Wild +4',        type:'toggle', default:false, desc:'Play Wild Draw 4 any time' },
+      { key:'pickTimer',         label:'Turn Timer',          type:'timer',  default:0 },
     ],
   },
   {
@@ -41,13 +41,12 @@ export const GAME_LIST = [
     ],
   },
   {
-    id: 'ludo', name: 'Ludo', emoji: '🎲',
-    description: 'Race your tokens home, send opponents back!',
-    players: '2–4', minPlayers: 2, maxPlayers: 4,
+    id: 'yahtzee', name: 'Yahtzee', emoji: '🎲',
+    description: 'Roll dice to score in 13 categories. Highest total wins!',
+    players: '1–4', minPlayers: 1, maxPlayers: 4,
     settings: [
-      { key:'safeSquares', label:'Safe Squares',   type:'toggle', default:true,  desc:'Protected squares — no captures' },
-      { key:'extraTurn6',  label:'6 = Extra Turn', type:'toggle', default:true,  desc:'Rolling 6 grants a bonus roll' },
-      { key:'mustUse6',    label:'Need 6 to Enter',type:'toggle', default:true,  desc:'Must roll 6 to enter the board' },
+      { key:'bonusYahtzee', label:'Bonus Yahtzee', type:'toggle', default:true,  desc:'Extra Yahtzees score 100 bonus points each' },
+      { key:'jokerRules',   label:'Joker Rules',   type:'toggle', default:true,  desc:'Bonus Yahtzee can fill any open category' },
     ],
   },
 ];
@@ -62,14 +61,13 @@ export function defaultSettingsFor(gameId) {
   return s;
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // GAME PICKER — embedded in waiting room for host to switch games
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 export function GamePicker({ currentGameId, settings, onChangeGame, isHost }) {
-  const [localGameId,  setLocalGameId]  = useState(currentGameId);
+  const [localGameId,   setLocalGameId]   = useState(currentGameId);
   const [localSettings, setLocalSettings] = useState(settings);
 
-  // When server confirms game changed, sync local state
   useEffect(() => {
     setLocalGameId(currentGameId);
     setLocalSettings(settings);
@@ -107,7 +105,6 @@ export function GamePicker({ currentGameId, settings, onChangeGame, isHost }) {
         ))}
       </div>
 
-      {/* Per-game settings */}
       {selectedGame && (
         <div className="gps-settings">
           {selectedGame.settings.map(opt => (
@@ -157,9 +154,9 @@ export function GamePicker({ currentGameId, settings, onChangeGame, isHost }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // CHAT HOOK
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 const CHAT_HIDE_MS = 8000;
 
 export function useChat(onChatMessage, onSendChat) {
@@ -238,9 +235,9 @@ export function useChat(onChatMessage, onSendChat) {
   return { ChatUI, showChat, chatMessages };
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // WAITING ROOM
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 export function WaitingRoom({
   gameState, playerId, roomCode, roomLink,
   onStartGame, onChangeGame,
@@ -289,7 +286,6 @@ export function WaitingRoom({
           ))}
         </div>
 
-        {/* Game picker — host can switch games, everyone sees the current pick */}
         <GamePicker
           currentGameId={gameState.gameType}
           settings={gameState.settings}
@@ -312,9 +308,9 @@ export function WaitingRoom({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // GAME OVER
-// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 export function GameOver({ gameState, playerId, onRematch, onReturnToLobby }) {
   const isHost   = gameState.players[0]?.id === playerId;
   const isDraw   = gameState.winner === 'draw';

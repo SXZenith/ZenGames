@@ -2,7 +2,7 @@
 /**
  * GAME REGISTRY
  * Each game must export: { meta, createRoom, getPublicState, handleAction }
- * 
+ *
  * meta: { id, name, minPlayers, maxPlayers, defaultSettings }
  * createRoom(roomCode, settings): returns initial room object
  * getPublicState(room, forPlayerId): returns state safe to send to that player
@@ -15,9 +15,9 @@
 const uno      = require('./uno');
 const connect4 = require('./connect4');
 const checkers = require('./checkers');
-const ludo     = require('./ludo');
+const yahtzee  = require('./yahtzee');
 
-const GAMES = { uno, connect4, checkers, ludo };
+const GAMES = { uno, connect4, checkers, yahtzee };
 
 function getGame(gameType) {
   const g = GAMES[gameType];

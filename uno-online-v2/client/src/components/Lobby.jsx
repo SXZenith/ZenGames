@@ -1,75 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { GAME_LIST, defaultSettingsFor } from '../games/SharedRoom';
 import './Lobby.css';
-
-const GAMES = [
-  {
-    id: 'uno', name: 'UNO', emoji: '🃏',
-    description: 'Match colors & numbers. First to empty their hand wins!',
-    players: '2–4',
-    settings: [
-      { key:'stackDraw2',      label:'Stack +2',         type:'toggle', default:true,  desc:'Play +2 on +2 to pass the penalty' },
-      { key:'stackDraw4',      label:'Stack +4',         type:'toggle', default:true,  desc:'Play +4 on +4 to pass the penalty' },
-      { key:'drawUntilPlayable',label:'Draw Until Play', type:'toggle', default:false, desc:'Keep drawing until you get a playable card' },
-      { key:'freeWild4',       label:'Free Wild +4',     type:'toggle', default:false, desc:'Play Wild Draw 4 any time' },
-      { key:'pickTimer',       label:'Turn Timer',       type:'timer',  default:0 },
-    ],
-  },
-  {
-    id: 'connect4', name: 'Connect 4', emoji: '🔴',
-    description: 'Drop discs to connect 4 in a row — horizontally, vertically, or diagonally!',
-    players: '2',
-    settings: [
-      { key:'allowUndo', label:'Allow Undo', type:'toggle', default:false, desc:'Players can undo their last move' },
-      { key:'winStreak', label:'Win Streak', type:'chips',  default:4, options:[3,4,5], desc:'How many in a row to win' },
-    ],
-  },
-  {
-    id: 'checkers', name: 'Checkers', emoji: '⚫',
-    description: "Classic draughts — capture all your opponent's pieces to win!",
-    players: '2',
-    settings: [
-      { key:'mandatoryCapture', label:'Must Capture', type:'toggle', default:true,  desc:'You must capture if a capture is available' },
-      { key:'flyingKings',      label:'Flying Kings', type:'toggle', default:false, desc:'Kings can move multiple squares at once' },
-    ],
-  },
-  {
-    id: 'ludo', name: 'Ludo', emoji: '🎲',
-    description: 'Roll dice and race your 4 tokens home. Land on opponents to send them back!',
-    players: '2–4',
-    settings: [
-      { key:'safeSquares', label:'Safe Squares', type:'toggle', default:true,  desc:'Marked squares where pieces cannot be captured' },
-      { key:'extraTurn6',  label:'6 = Extra Turn',type:'toggle', default:true,  desc:'Rolling 6 grants an extra roll' },
-      { key:'mustUse6',    label:'Need 6 to Enter',type:'toggle',default:true,  desc:'Must roll a 6 to enter the board' },
-    ],
-  },
-];
 
 const TIMER_OPTIONS = [0,10,15,20,30];
 
-function defaultSettings(game) {
-  const s = {};
-  game.settings.forEach(opt => { s[opt.key] = opt.default; });
-  return s;
-}
-
 export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, autoJoinCode }) {
-  const [tab,        setTab]        = useState(autoJoinCode ? 'join' : 'create');
-  const [name,       setName]       = useState('');
-  const [code,       setCode]       = useState(autoJoinCode || '');
-  const [gameId,     setGameId]     = useState('uno');
-  const [settings,   setSettings]   = useState(() => defaultSettings(GAMES[0]));
-  const [showPicker, setShowPicker] = useState(false);
+  const [tab,      setTab]      = useState(autoJoinCode ? 'join' : 'create');
+  const [name,     setName]     = useState('');
+  const [code,     setCode]     = useState(autoJoinCode || '');
+  const [gameId,   setGameId]   = useState('uno');
+  const [settings, setSettings] = useState(() => defaultSettingsFor('uno'));
 
   useEffect(() => {
     if (autoJoinCode) { setCode(autoJoinCode); setTab('join'); }
   }, [autoJoinCode]);
 
-  const selectedGame = GAMES.find(g => g.id === gameId);
+  const selectedGame = GAME_LIST.find(g => g.id === gameId);
 
   const selectGame = (g) => {
     setGameId(g.id);
-    setSettings(defaultSettings(g));
-    setShowPicker(false);
+    setSettings(defaultSettingsFor(g.id));
   };
 
   const updateSetting = (key, val) => setSettings(s => ({ ...s, [key]: val }));
@@ -87,7 +37,6 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
   return (
     <div className="lobby">
       <div className="lobby-card">
-        {/* Logo */}
         <div className="lobby-logo">
           <div className="zen-badge">ZG</div>
           <div>
@@ -96,7 +45,6 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="tab-bar">
           <button className={`tab ${tab==='create'?'active':''}`} onClick={() => setTab('create')}>Create Room</button>
           <button className={`tab ${tab==='join'  ?'active':''}`} onClick={() => setTab('join')  }>Join Room</button>
@@ -104,15 +52,13 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
 
         {tab === 'create' ? (
           <form onSubmit={handleCreate} className="lobby-form">
-            {/* Name */}
             <label className="form-label">Your Name</label>
             <input className="input-field" placeholder="Enter your name…" value={name}
               onChange={e => setName(e.target.value)} maxLength={20} autoFocus />
 
-            {/* Game Picker */}
             <label className="form-label" style={{marginTop:4}}>Game</label>
             <div className="game-picker">
-              {GAMES.map(g => (
+              {GAME_LIST.map(g => (
                 <button key={g.id} type="button"
                   className={`game-tile ${gameId===g.id?'selected':''}`}
                   onClick={() => selectGame(g)}>
@@ -123,10 +69,8 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
               ))}
             </div>
 
-            {/* Game description */}
             <div className="game-desc">{selectedGame?.description}</div>
 
-            {/* Game-specific settings */}
             <div className="game-settings">
               {selectedGame?.settings.map(opt => (
                 <div key={opt.key} className="gs-row">
@@ -186,7 +130,6 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
         )}
 
         {error && <div className="error-msg">⚠ {error}</div>}
-
         <div className="conn-row">
           <span style={{color: connected?'var(--green)':'var(--text-muted)'}}>
             {connected ? '● Connected' : '● Connecting…'}

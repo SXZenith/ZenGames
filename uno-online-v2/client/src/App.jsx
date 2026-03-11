@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
-import Lobby       from './components/Lobby';
-import Game        from './components/Game';
-import Connect4Game from './games/connect4/Connect4Game';
-import CheckersGame from './games/checkers/CheckersGame';
-import LudoGame     from './games/ludo/LudoGame';
+import Lobby        from './components/Lobby';
+import Game         from './components/Game';
+import Connect4Game  from './games/connect4/Connect4Game';
+import CheckersGame  from './games/checkers/CheckersGame';
+import YahtzeeGame   from './games/yahtzee/YahtzeeGame';
 import { isMuted, toggleMute, soundReaction } from './sounds';
 import './App.css';
 import './AppHUD.css';
@@ -14,11 +14,10 @@ const REACTIONS  = ['🔥','😂','😤','🎉','💀','👍'];
 const CHAT_HIDE_MS = 8000;
 
 export default function App() {
-  const socketRef   = useRef(null);
-  // bridges so child game components can still subscribe to events if needed
+  const socketRef         = useRef(null);
   const reactionBridgeRef = useRef({ onReaction: null });
 
-  // ── Socket state ────────────────────────────────────────────────────
+  // ── Socket state ──────────────────────────────────────────────────────────
   const [gameState,    setGameState]    = useState(null);
   const [roomCode,     setRoomCode]     = useState('');
   const [playerId,     setPlayerId]     = useState('');
@@ -31,12 +30,11 @@ export default function App() {
     return code ? code.toUpperCase() : '';
   });
 
-  // ── Global HUD state (persists across all games) ─────────────────────
+  // ── Global HUD state (persists across all games) ──────────────────────────
   const [mutedState,        setMutedState]        = useState(isMuted());
   const [showScoreboard,    setShowScoreboard]    = useState(false);
   const [showReactions,     setShowReactions]     = useState(false);
   const [floatingReactions, setFloatingReactions] = useState([]);
-  // Chat
   const [showChat,      setShowChat]      = useState(false);
   const [chatMessages,  setChatMessages]  = useState([]);
   const [chatInput,     setChatInput]     = useState('');
@@ -47,7 +45,7 @@ export default function App() {
   const inRoom   = !!roomCode && !!gameState;
   const gameType = gameState?.gameType;
 
-  // ── Socket setup ────────────────────────────────────────────────────
+  // ── Socket setup ──────────────────────────────────────────────────────────
   useEffect(() => {
     const s = io(SERVER_URL, { transports: ['websocket', 'polling'] });
     socketRef.current = s;
@@ -65,7 +63,6 @@ export default function App() {
       const id = Date.now() + Math.random();
       setFloatingReactions(prev => [...prev, { ...data, id }]);
       setTimeout(() => setFloatingReactions(prev => prev.filter(r => r.id !== id)), 2500);
-      // also forward to any child subscriber
       if (reactionBridgeRef.current?.onReaction) reactionBridgeRef.current.onReaction(data);
     });
 
@@ -82,11 +79,10 @@ export default function App() {
     return () => s.disconnect();
   }, []);
 
-  // auto-scroll chat
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
   useEffect(() => { if (showChat) setChatUnread(0); }, [showChat]);
 
-  // ── Callbacks ────────────────────────────────────────────────────────
+  // ── Callbacks ─────────────────────────────────────────────────────────────
   const emit = (ev, data) => socketRef.current?.emit(ev, data);
 
   const createRoom     = useCallback((name, gameType, settings) => { setError(''); emit('createRoom', { playerName: name, gameType, settings }); }, []);
@@ -106,7 +102,7 @@ export default function App() {
   const callUno   = useCallback(() => emit('callUno'), []);
   const catchUno  = useCallback((tid) => emit('catchUno', { targetPlayerId: tid }), []);
 
-  // ── HUD handlers ─────────────────────────────────────────────────────
+  // ── HUD handlers ──────────────────────────────────────────────────────────
   const handleMuteToggle = () => setMutedState(toggleMute());
   const openChat = () => {
     setShowChat(s => !s);
@@ -131,7 +127,6 @@ export default function App() {
 
   const roomLink = roomCode ? `${window.location.origin}?room=${roomCode}` : '';
 
-  // Props every game gets (no chat/reaction — those are in the global HUD now)
   const sharedProps = {
     gameState, playerId, roomCode, roomLink,
     onStartGame: startGame, onRematch: rematch,
@@ -139,8 +134,6 @@ export default function App() {
     onChangeGame: changeGame,
     onUpdateSettings: updateSettings,
     onSendReaction: sendReaction,
-    // legacy bridge — UNO's Game.jsx still wires its own chat UI internally,
-    // but we keep onChatMessage null since messages now live in App state
     onReaction: reactionBridgeRef.current,
     onChatMessage: null,
     onSendChat: sendChat,
@@ -162,8 +155,8 @@ export default function App() {
         <Connect4Game {...sharedProps} onGameAction={gameAction} />
       ) : gameType === 'checkers' ? (
         <CheckersGame {...sharedProps} onGameAction={gameAction} />
-      ) : gameType === 'ludo' ? (
-        <LudoGame {...sharedProps} onGameAction={gameAction} />
+      ) : gameType === 'yahtzee' ? (
+        <YahtzeeGame {...sharedProps} onGameAction={gameAction} />
       ) : (
         <div style={{color:'white',padding:40}}>Unknown game: {gameType}</div>
       )}
@@ -171,8 +164,7 @@ export default function App() {
       {/* ══ GLOBAL HUD — visible in all in-room screens ══ */}
       {inRoom && (
         <>
-          {/* Floating reactions */}
-          {floatingReactions.map((r, i) => (
+          {floatingReactions.map((r) => (
             <div key={r.id} className="floating-reaction"
               style={{ left: `${10 + (gameState.players.findIndex(p=>p.id===r.playerId)) * 22}%` }}>
               <span className="fr-name">{r.playerName}</span>
@@ -180,7 +172,6 @@ export default function App() {
             </div>
           ))}
 
-          {/* Scoreboard overlay */}
           {showScoreboard && (
             <div className="mid-scoreboard" onClick={() => setShowScoreboard(false)}>
               <div className="mid-sb-card" onClick={e => e.stopPropagation()}>
@@ -197,7 +188,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ── HUD top-right: mute, scoreboard, reactions ── */}
+          {/* HUD top-right: mute, scoreboard, reactions */}
           <div className="global-hud-right" onClick={e => e.stopPropagation()}>
             <button className="hud-btn" onClick={handleMuteToggle}>{mutedState ? '🔇' : '🔊'}</button>
             <button className="hud-btn" onClick={() => setShowScoreboard(s => !s)}>🏆</button>
@@ -211,7 +202,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* ── HUD top-left: chat ── */}
+          {/* HUD top-left: chat */}
           <div className="global-hud-left" onClick={e => e.stopPropagation()}>
             <button className="hud-btn chat-toggle-btn" onClick={openChat}>
               💬
