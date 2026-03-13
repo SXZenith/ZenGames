@@ -1,0 +1,87 @@
+/* BounceGame.css */
+.bnc-game {
+  display: flex; flex-direction: column; height: 100vh;
+  background: #071020; color: #dce8f8;
+  font-family: 'Inter','Segoe UI',system-ui,sans-serif;
+  padding-top: 52px; box-sizing: border-box; overflow: hidden;
+  user-select: none; -webkit-user-select: none;
+  cursor: pointer;
+}
+.bnc-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 7px 14px; background: #0a1628;
+  border-bottom: 1px solid #1a2e46; flex-shrink: 0; min-height: 44px;
+}
+.bnc-title { font-size: 0.9rem; font-weight: 800; color: #4cc9f0; white-space: nowrap; }
+.bnc-progress-wrap { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 80px; }
+.bnc-progress-bar {
+  flex: 1; height: 8px; background: #1a2e46; border-radius: 4px; overflow: hidden;
+}
+.bnc-progress-fill { height: 100%; border-radius: 4px; transition: width 0.2s; }
+.bnc-pct { font-size: 0.72rem; font-weight: 700; color: #4cc9f0; min-width: 32px; }
+.bnc-mini-rank { display: flex; gap: 6px; flex-wrap: wrap; }
+.bnc-rank-chip {
+  background: #1a2e46; border-radius: 999px; padding: 2px 8px;
+  font-size: 0.68rem; font-weight: 600; color: #5a7a96;
+}
+.bnc-rank-chip.me { color: #4cc9f0; border: 1px solid rgba(76,201,240,0.3); }
+
+.bnc-layout { flex: 1; display: flex; overflow: hidden; }
+
+/* canvas */
+.bnc-canvas-wrap {
+  position: relative; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #071020;
+}
+.bnc-canvas { display: block; touch-action: none; }
+.bnc-color-indicator {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.bnc-color-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  transition: transform 0.15s, box-shadow 0.15s; opacity: 0.4;
+}
+.bnc-color-dot.active { transform: scale(1.4); opacity: 1; }
+.bnc-tap-hint {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  font-size: 0.65rem; color: #2a4060; white-space: nowrap;
+  pointer-events: none;
+}
+
+/* side panel */
+.bnc-side {
+  flex: 1; display: flex; flex-direction: column; padding: 12px;
+  gap: 10px; overflow-y: auto; border-left: 1px solid #1a2e46;
+  min-width: 0;
+}
+.bnc-side-title {
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1.5px; color: #3a5570;
+}
+.bnc-leader-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 0; border-bottom: 1px solid #0d1e30;
+}
+.bnc-leader-row.me { color: #4cc9f0; }
+.bnc-leader-rank { font-size: 0.7rem; color: #3a5570; width: 22px; font-weight: 700; }
+.bnc-leader-name { font-size: 0.8rem; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bnc-leader-prog { width: 50px; height: 6px; background: #1a2e46; border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+.bnc-leader-prog div { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.bnc-leader-pct { font-size: 0.68rem; color: #4a6680; width: 28px; text-align: right; }
+
+.bnc-rules {
+  margin-top: auto; display: flex; flex-direction: column; gap: 6px;
+  background: #0d1e30; border-radius: 10px; padding: 10px 12px;
+}
+.bnc-rules-title { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #3a5570; margin-bottom: 4px; }
+.bnc-rules div { font-size: 0.75rem; color: #5a7a96; }
+.bnc-rules strong { color: #8ab4cc; }
+
+@media(max-width:600px){
+  .bnc-layout { flex-direction: column; }
+  .bnc-canvas-wrap { width: 100%; }
+  .bnc-canvas { width: 100%; height: auto; }
+  .bnc-side { max-height: 180px; }
+}

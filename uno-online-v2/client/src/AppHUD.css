@@ -1,30 +1,41 @@
 /* ══ GLOBAL HUD — overlays every game screen ══ */
 
 .global-hud-right {
-  position: fixed; top: 14px; right: 14px;
+  position: fixed; top: 8px; right: 10px;
   display: flex; gap: 8px; z-index: 500;
 }
 .global-hud-left {
-  position: fixed; top: 14px; left: 14px;
+  position: fixed; top: 8px; left: 10px;
   z-index: 500;
 }
 
-/* shared hud-btn style (works alongside Game.css .hud-btn) */
 .global-hud-right .hud-btn,
 .global-hud-left  .hud-btn {
-  width: 38px; height: 38px; border-radius: 50%;
-  background: var(--surface); border: 1px solid var(--border);
-  font-size: 1.1rem; display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(15,25,35,0.82);
+  border: 1px solid rgba(255,255,255,0.1);
+  font-size: 1rem; display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: transform .15s, background .15s;
-  box-shadow: 0 2px 8px rgba(0,0,0,.35); position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,.5); position: relative;
+  backdrop-filter: blur(6px); color: inherit;
 }
 .global-hud-right .hud-btn:hover,
-.global-hud-left  .hud-btn:hover { transform: scale(1.12); background: var(--surface2); }
+.global-hud-left  .hud-btn:hover { transform: scale(1.12); background: rgba(30,46,64,0.95); }
+
+/* Exit button — slightly red tint */
+.hud-exit-btn {
+  background: rgba(40,10,10,0.82) !important;
+  border-color: rgba(230,57,70,0.25) !important;
+}
+.hud-exit-btn:hover {
+  background: rgba(100,20,20,0.95) !important;
+  border-color: rgba(230,57,70,0.5) !important;
+}
 
 /* Reaction picker */
 .reaction-wrapper { position: relative; }
 .reaction-picker {
-  position: absolute; top: 46px; right: 0;
+  position: absolute; top: 42px; right: 0;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 14px; padding: 8px; display: flex; gap: 4px; flex-wrap: wrap;
   box-shadow: 0 8px 32px rgba(0,0,0,.5); z-index: 600;
@@ -34,6 +45,7 @@
   font-size: 1.4rem; width: 40px; height: 40px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   transition: transform .12s, background .12s; cursor: pointer;
+  background: none; border: none;
 }
 .react-btn:hover { transform: scale(1.25); background: var(--surface2); }
 
@@ -78,7 +90,7 @@
   display: flex; align-items: center; justify-content: center; pointer-events: none;
 }
 .chat-panel {
-  position: absolute; top: 48px; left: 0; width: 280px;
+  position: absolute; top: 44px; left: 0; width: 280px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
   box-shadow: 0 12px 40px rgba(0,0,0,.5);
   display: flex; flex-direction: column; overflow: hidden; animation: pop-in .18s ease;
@@ -104,7 +116,7 @@
 .chat-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; color: var(--text); padding: 7px 12px; font-size: .85rem; font-family: 'Nunito',sans-serif; }
 .chat-input:focus { border-color: rgba(76,201,240,.4); outline: none; }
 .chat-input::placeholder { color: var(--text-muted); }
-.chat-send { background: linear-gradient(135deg,#4cc9f0,#06d6a0); color: #0f1117; border-radius: 50%; width: 32px; height: 32px; flex-shrink: 0; font-size: .82rem; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+.chat-send { background: linear-gradient(135deg,#4cc9f0,#06d6a0); color: #0f1117; border-radius: 50%; width: 32px; height: 32px; flex-shrink: 0; font-size: .82rem; font-weight: 900; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; }
 .chat-send:disabled { opacity: .4; cursor: not-allowed; }
 
 @keyframes pop-in { from{transform:scale(.85);opacity:0} to{transform:scale(1);opacity:1} }

@@ -4,7 +4,10 @@ import Lobby        from './components/Lobby';
 import Game         from './components/Game';
 import Connect4Game  from './games/connect4/Connect4Game';
 import CheckersGame  from './games/checkers/CheckersGame';
-import YahtzeeGame   from './games/yahtzee/YahtzeeGame';
+import YahtzeeGame    from './games/yahtzee/YahtzeeGame';
+import HangmanGame    from './games/hangman/HangmanGame';
+import BattleshipGame from './games/battleship/BattleshipGame';
+import BounceGame     from './games/bounce/BounceGame';
 import { isMuted, toggleMute, soundReaction } from './sounds';
 import './App.css';
 import './AppHUD.css';
@@ -156,7 +159,13 @@ export default function App() {
       ) : gameType === 'checkers' ? (
         <CheckersGame {...sharedProps} onGameAction={gameAction} />
       ) : gameType === 'yahtzee' ? (
-        <YahtzeeGame {...sharedProps} onGameAction={gameAction} />
+        <YahtzeeGame     {...sharedProps} onGameAction={gameAction} />
+      ) : gameType === 'hangman' ? (
+        <HangmanGame     {...sharedProps} onGameAction={gameAction} />
+      ) : gameType === 'battleship' ? (
+        <BattleshipGame  {...sharedProps} onGameAction={gameAction} />
+      ) : gameType === 'bounce' ? (
+        <BounceGame      {...sharedProps} onGameAction={gameAction} />
       ) : (
         <div style={{color:'white',padding:40}}>Unknown game: {gameType}</div>
       )}
@@ -188,7 +197,7 @@ export default function App() {
             </div>
           )}
 
-          {/* HUD top-right: mute, scoreboard, reactions */}
+          {/* HUD top-right: mute, scoreboard, reactions, exit */}
           <div className="global-hud-right" onClick={e => e.stopPropagation()}>
             <button className="hud-btn" onClick={handleMuteToggle}>{mutedState ? '🔇' : '🔊'}</button>
             <button className="hud-btn" onClick={() => setShowScoreboard(s => !s)}>🏆</button>
@@ -200,6 +209,10 @@ export default function App() {
                 </div>
               )}
             </div>
+            <button className="hud-btn hud-exit-btn" title="Exit to Lobby"
+              onClick={() => { if (window.confirm('Leave game and return to lobby?')) returnToLobby(); }}>
+              🚪
+            </button>
           </div>
 
           {/* HUD top-left: chat */}
