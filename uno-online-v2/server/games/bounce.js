@@ -57,35 +57,27 @@ function mulberry32(seed) {
   };
 }
 
-function createRoom(players, settings = {}) {
+function createRoom(roomCode, settings = {}) {
   const courseLength = settings.courseLength || 60;
   const seed = Math.floor(Math.random() * 999999);
   const course = generateCourse(courseLength, seed);
 
-  const playerStates = {};
-  players.forEach((p, i) => {
-    playerStates[p.id] = {
-      y: 0,              // progress up the course (0 = start, FINISH_Y = win)
-      colorIndex: 0,     // current color index
-      alive: true,
-      finished: false,
-      finishTime: null,
-      bounceVelocity: 0, // used client-side for animation
-      lastInput: 0,
-    };
-  });
-
   return {
-    state: 'playing',
+    roomCode,
+    gameType: 'bounce',
+    state: 'waiting',
     course,
     courseLength,
     finishY: courseLength + 3,
     seed,
-    playerStates,
-    finishOrder: [], // player ids in finish order
-    startTime: Date.now(),
+    playerStates: {},
+    finishOrder: [],
+    startTime: null,
     settings,
-    players: players.map(p => ({ ...p, score: p.score || 0 })),
+    players: [],
+    winner: null,
+    minPlayers: meta.minPlayers,
+    maxPlayers: meta.maxPlayers,
   };
 }
 
@@ -143,13 +135,26 @@ function handleAction(room, playerId, action, payload) {
   }
 }
 
-function startGame(room) {}
+function startGame(room) {
+  room.state = 'playing';
+  room.startTime = Date.now();
+  room.finishOrder = [];
+  room.winner = null;
+  room.playerStates = {};
+  room.players.forEach(p => {
+    room.playerStates[p.id] = {
+      y: 0,
+      colorIndex: 0,
+      finished: false,
+      finishTime: null,
+    };
+  });
+}
 
 function rematch(room) {
-  return createRoom(
-    room.players.map(p => ({ ...p, score: p.score || 0 })),
-    room.settings
-  );
+  const fresh = createRoom(room.roomCode, room.settings);
+  fresh.players = room.players.map(p => ({ ...p, score: p.score || 0 }));
+  return fresh;
 }
 
 module.exports = { meta, createRoom, getPublicState, handleAction, startGame, rematch, COLORS, COLOR_NAMES };

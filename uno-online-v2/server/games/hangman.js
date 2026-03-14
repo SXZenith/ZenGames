@@ -49,21 +49,26 @@ function pickWord() {
   return WORDS[Math.floor(Math.random() * WORDS.length)];
 }
 
-function createRoom(players, settings = {}) {
+function createRoom(roomCode, settings = {}) {
   const word = pickWord();
   return {
-    state: 'playing',
+    roomCode,
+    gameType: 'hangman',
+    state: 'waiting',
     word,
     category: CATEGORIES[word] || 'General',
-    guessed: [],        // letters guessed so far
-    wrongGuesses: [],   // wrong letters
+    guessed: [],
+    wrongGuesses: [],
     maxWrong: settings.hardMode ? 5 : MAX_WRONG,
     showCategory: settings.showCategory !== false,
     currentGuesserIndex: 0,
     round: 1,
-    wordHistory: [],    // { word, winner, guessedBy }
+    wordHistory: [],
     settings,
-    players: players.map(p => ({ ...p, score: p.score || 0 })),
+    players: [],
+    winner: null,
+    minPlayers: meta.minPlayers,
+    maxPlayers: meta.maxPlayers,
   };
 }
 
@@ -147,12 +152,21 @@ function _nextRound(room) {
 }
 
 function startGame(room) {
-  // already started in createRoom
+  room.state = 'playing';
+  room.word = pickWord();
+  room.category = CATEGORIES[room.word] || 'General';
+  room.guessed = [];
+  room.wrongGuesses = [];
+  room.currentGuesserIndex = 0;
+  room.round = 1;
+  room.wordHistory = [];
+  room.players.forEach(p => { p.score = p.score || 0; });
 }
 
 function rematch(room) {
-  const newRoom = createRoom(room.players.map(p => ({ ...p, score: 0 })), room.settings);
-  return newRoom;
+  const fresh = createRoom(room.roomCode, room.settings);
+  fresh.players = room.players.map(p => ({ ...p, score: 0 }));
+  return fresh;
 }
 
 module.exports = { meta, createRoom, getPublicState, handleAction, startGame, rematch };

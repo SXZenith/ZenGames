@@ -60,29 +60,19 @@ function autoPlace(ships, size) {
   return { grid, ships: placed };
 }
 
-function createRoom(players, settings = {}) {
-  const size = settings.gridSize || 10;
-  const shipDefs = size === 8 ? SHIPS_8 : SHIPS_10;
-
-  const boards = {};
-  for (const p of players) {
-    const { grid, ships } = autoPlace(shipDefs, size);
-    boards[p.id] = {
-      grid,       // what's placed
-      ships,      // ship objects with cells + sunk flag
-      shots: [],  // { row, col, hit }
-    };
-  }
-
+function createRoom(roomCode, settings = {}) {
   return {
-    state: 'playing',
-    phase: 'battle', // could add 'placement' phase later
-    size,
-    boards,
+    roomCode,
+    gameType: 'battleship',
+    state: 'waiting',
+    size: settings.gridSize || 10,
+    boards: {},
     currentPlayerIndex: 0,
-    players: players.map(p => ({ ...p, score: p.score || 0 })),
+    players: [],
     settings,
     winner: null,
+    minPlayers: meta.minPlayers,
+    maxPlayers: meta.maxPlayers,
   };
 }
 
@@ -156,10 +146,24 @@ function handleAction(room, playerId, action, payload) {
   }
 }
 
-function startGame(room) {}
+function startGame(room) {
+  room.state = 'playing';
+  room.currentPlayerIndex = 0;
+  room.winner = null;
+  room.boards = {};
+  const size = room.settings.gridSize || 10;
+  room.size = size;
+  const shipDefs = size === 8 ? SHIPS_8 : SHIPS_10;
+  for (const p of room.players) {
+    const { grid, ships } = autoPlace(shipDefs, size);
+    room.boards[p.id] = { grid, ships, shots: [] };
+  }
+}
 
 function rematch(room) {
-  return createRoom(room.players.map(p => ({ ...p, score: p.score || 0 })), room.settings);
+  const fresh = createRoom(room.roomCode, room.settings);
+  fresh.players = room.players.map(p => ({ ...p, score: p.score || 0 }));
+  return fresh;
 }
 
 module.exports = { meta, createRoom, getPublicState, handleAction, startGame, rematch };
