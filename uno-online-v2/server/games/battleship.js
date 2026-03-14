@@ -79,18 +79,21 @@ function createRoom(roomCode, settings = {}) {
 function getPublicState(room) {
   const { state, size, boards, currentPlayerIndex, players, settings, winner } = room;
   // Build per-player view: own full board + opponent's shot-result board only
+  // boards may be empty during 'waiting' state — guard against that
   const publicBoards = {};
   for (const p of players) {
-    const myBoard = boards[p.id];
-    const oppId = players.find(op => op.id !== p.id)?.id;
-    const oppBoard = oppId ? boards[oppId] : null;
+    const myBoard  = boards?.[p.id];
+    const oppId    = players.find(op => op.id !== p.id)?.id;
+    const oppBoard = oppId ? boards?.[oppId] : null;
 
-    publicBoards[p.id] = {
-      myGrid: myBoard.grid,
-      myShips: myBoard.ships,
-      myShots: myBoard.shots,
+    publicBoards[p.id] = myBoard ? {
+      myGrid:   myBoard.grid,
+      myShips:  myBoard.ships,
+      myShots:  myBoard.shots,
       oppShots: oppBoard ? oppBoard.shots : [],
-      oppShips: oppBoard ? oppBoard.ships.filter(s => s.sunk) : [], // only reveal sunk ships
+      oppShips: oppBoard ? oppBoard.ships.filter(s => s.sunk) : [],
+    } : {
+      myGrid: null, myShips: [], myShots: [], oppShots: [], oppShips: [],
     };
   }
 
