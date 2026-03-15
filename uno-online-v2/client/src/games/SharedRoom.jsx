@@ -20,6 +20,7 @@ export const GAME_LIST = [
       { key:'drawUntilPlayable', label:'Draw Until Playable', type:'toggle', default:false, desc:'Keep drawing until you get a playable card' },
       { key:'freeWild4',         label:'Free Wild +4',        type:'toggle', default:false, desc:'Play Wild Draw 4 any time' },
       { key:'pickTimer',         label:'Turn Timer',          type:'timer',  default:0 },
+      { key:'scoreToWin',         label:'Score to Win',         type:'chips',  default:500, options:[100,200,300,400,500], desc:'Points needed to win the match' },
     ],
   },
   {
@@ -47,33 +48,6 @@ export const GAME_LIST = [
     settings: [
       { key:'bonusYahtzee', label:'Bonus Yahtzee', type:'toggle', default:true,  desc:'Extra Yahtzees score 100 bonus points each' },
       { key:'jokerRules',   label:'Joker Rules',   type:'toggle', default:true,  desc:'Bonus Yahtzee can fill any open category' },
-    ],
-  },
-  {
-    id: 'hangman', name: 'Hangman', emoji: '🪢',
-    description: 'Guess the secret word before the man is hanged! 5 rounds.',
-    players: '2–4', minPlayers: 2, maxPlayers: 4,
-    settings: [
-      { key:'hardMode',     label:'Hard Mode',     type:'toggle', default:false, desc:'Only 5 wrong guesses allowed' },
-      { key:'showCategory', label:'Show Category', type:'toggle', default:true,  desc:'Show the word category as a hint' },
-    ],
-  },
-  {
-    id: 'battleship', name: 'Battleship', emoji: '🚢',
-    description: "Sink your opponent's fleet before they sink yours!",
-    players: '2', minPlayers: 2, maxPlayers: 2,
-    settings: [
-      { key:'gridSize',   label:'Grid Size',   type:'chips',  default:10, options:[8,10], desc:'8×8 or 10×10 board' },
-      { key:'showMisses', label:'Show Misses', type:'toggle', default:true, desc:'Display missed shots on board' },
-    ],
-  },
-  {
-    id: 'bounce', name: 'Bounce', emoji: '🔵',
-    description: 'Race to the top! Tap to jump and switch colors to pass through obstacles.',
-    players: '2–4', minPlayers: 2, maxPlayers: 4,
-    settings: [
-      { key:'courseLength', label:'Course Length', type:'chips', default:60, options:[40,60,80], desc:'Number of obstacle rows' },
-      { key:'speed',        label:'Speed',         type:'chips', default:2,  options:[1,2,3],    desc:'Ball speed' },
     ],
   },
 ];

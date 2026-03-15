@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS = {
   stackDraw4: true,
   drawUntilPlayable: false,
   freeWild4: false,        // if true, Wild Draw 4 can be played any time
+  scoreToWin: 500,         // points needed to win the match
 };
 
 function createGame(roomCode, settings = {}) {
@@ -126,6 +127,14 @@ function isPlayableCard(card, game) {
   return canPlay(card, topCard, game.currentColor);
 }
 
+
+function cardScore(card) {
+  if (card.color === 'wild') return 50; // wild and wild4
+  const num = parseInt(card.value);
+  if (!isNaN(num)) return num;
+  return 20; // skip, reverse, draw2
+}
+
 function playCard(game, playerId, cardId, chosenColor) {
   const playerIndex = game.players.findIndex(p => p.id === playerId);
   if (playerIndex !== game.currentPlayerIndex) return { error: 'Not your turn' };
@@ -175,7 +184,18 @@ function playCard(game, playerId, cardId, chosenColor) {
   if (player.hand.length === 0) {
     game.state = 'finished';
     game.winner = player.name;
-    return { success: true, gameOver: true };
+    // Traditional UNO scoring: winner gets points equal to sum of all opponents' cards
+    const roundPoints = game.players
+      .filter(p => p.id !== playerId)
+      .reduce((sum, p) => sum + p.hand.reduce((s, c) => s + cardScore(c), 0), 0);
+    player.roundPoints = (player.roundPoints || 0) + roundPoints;
+    player.totalScore  = (player.totalScore  || 0) + roundPoints;
+    // Check if match is won
+    const scoreToWin = game.settings.scoreToWin || 500;
+    if (player.totalScore >= scoreToWin) {
+      game.matchWinner = player.name;
+    }
+    return { success: true, gameOver: true, roundPoints };
   }
 
   // Reset unoCalled when hand grows back above 1
@@ -249,11 +269,24 @@ function forceDraw(game, playerId) {
 
     const card = game.deck.pop();
     player.hand.push(card);
-    game.drawingStreak = true; // flag: player has drawn at least once this turn
     game.lastAction = { type: 'draw', player: player.name, count: 1 };
 
-    // NOTE: we do NOT advance turn here — player stays until they pass or play
-    return { success: true, drew: 1, foundPlayable: isPlayableCard(card, game) };
+    // If the drawn card is playable, end turn (player must now play or pass manually)
+    // But only stay if they have drawn at least one card — allow play from hand
+    const playable = isPlayableCard(card, game);
+    if (playable) {
+      // Card is playable — set streak so Pass Turn button appears, but don't auto-advance
+      game.drawingStreak = true;
+      return { success: true, drew: 1, foundPlayable: true };
+    }
+    // Not playable — keep drawing (don't advance turn, don't set streak yet)
+    // Check if player now has ANY playable card
+    const hasPlayable = player.hand.some(c => isPlayableCard(c, game));
+    if (hasPlayable) {
+      game.drawingStreak = true; // stop auto-drawing, let them play or pass
+    }
+    // If still no playable card, they can click Draw again
+    return { success: true, drew: 1, foundPlayable: hasPlayable };
   }
 
   // ── Normal draw: draw 1 then end turn ─────────────────────────────────
@@ -307,6 +340,7 @@ function getPublicState(game, forPlayerId) {
     deckSize:           game.deck.length,
     lastAction:         game.lastAction,
     unoVulnerable:      game.unoVulnerable || null,
+    matchWinner:        game.matchWinner || null,
     settings:           game.settings,
     drawingStreak:      game.drawingStreak || false,
     players: game.players.map(p => ({
@@ -316,6 +350,8 @@ function getPublicState(game, forPlayerId) {
       hand:        p.id === forPlayerId ? (p.hand ?? []) : undefined,
       isConnected: p.isConnected,
       score:       p.score || 0,
+      totalScore:  p.totalScore || 0,
+      roundPoints: p.roundPoints || 0,
       unoCalled:   p.unoCalled || false,
     })),
   };
@@ -323,5 +359,5 @@ function getPublicState(game, forPlayerId) {
 
 module.exports = {
   createGame, dealCards, playCard, forceDraw, passTurn,
-  drawCards, canPlay, isPlayableCard, getPublicState, DEFAULT_SETTINGS,
+  drawCards, canPlay, isPlayableCard, getPublicState, DEFAULT_SETTINGS, cardScore,
 };

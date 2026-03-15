@@ -134,7 +134,7 @@ io.on('connection', (socket) => {
       // UNO rematch: full fresh game preserving scores
       const fresh = unoLogic.createGame(info.roomCode, room.settings);
       fresh.gameType = 'uno';
-      fresh.players  = room.players.map(p => ({ ...p, hand:[], unoCalled:false }));
+      fresh.players  = room.players.map(p => ({ ...p, hand:[], unoCalled:false, roundPoints:0 })); // preserve totalScore for match
       fresh.state    = 'playing';
       rooms[info.roomCode] = fresh;
       unoLogic.dealCards(fresh);
@@ -151,7 +151,7 @@ io.on('connection', (socket) => {
     if (room.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can return to lobby' });
     const game  = getGame(room.gameType);
     const fresh = game.createRoom(info.roomCode, room.settings);
-    fresh.players = room.players.map(p => ({ ...p, hand:[], unoCalled:false, score:0 }));
+    fresh.players = room.players.map(p => ({ ...p, hand:[], unoCalled:false, score:0, totalScore:0, roundPoints:0 }));
     fresh.state   = 'waiting';
     rooms[info.roomCode] = fresh;
     broadcastState(info.roomCode);

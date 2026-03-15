@@ -465,3 +465,83 @@
   font-size: 0.72rem; color: var(--text-muted); text-align: center;
   margin-top: 4px; min-height: 1em;
 }
+
+/* ===== FLAT HAND ROW (replaces fan) ===== */
+.hand-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 8px 4px 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.hand-card-wrap {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
+  flex-shrink: 0;
+}
+.hand-card-wrap:hover        { transform: translateY(-10px); }
+.hand-card-wrap.selected     { transform: translateY(-20px); }
+.hand-card-wrap.not-playable { opacity: 0.55; filter: saturate(0.5); cursor: not-allowed; }
+.hand-card-wrap.playable     { opacity: 1; filter: none; }
+
+/* ===== UNO CALLED BADGE ===== */
+.uno-called-badge {
+  display: inline-block;
+  margin-top: 8px;
+  background: rgba(6,214,160,0.15);
+  color: var(--green);
+  border: 1.5px solid rgba(6,214,160,0.4);
+  border-radius: 50px;
+  padding: 6px 18px;
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+/* ===== GAME OVER: SCORE DISPLAY ===== */
+.go-round-pts {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--green);
+}
+.go-score-target {
+  font-weight: 600;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.go-score-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+.go-pts {
+  font-weight: 900;
+  font-size: 1rem;
+  background: linear-gradient(135deg, #ff3b52, #ffd93d);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.go-wins-small {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.go-match-winner {
+  margin-top: 16px;
+  background: rgba(255,217,61,0.12);
+  border: 1.5px solid rgba(255,217,61,0.35);
+  border-radius: 14px;
+  padding: 12px 20px;
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--yellow);
+  text-align: center;
+  width: 100%;
+  animation: pop-in 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
