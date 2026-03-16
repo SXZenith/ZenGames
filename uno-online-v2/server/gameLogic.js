@@ -265,7 +265,7 @@ function forceDraw(game, playerId) {
     // Block drawing if they already have a playable card in hand
     const alreadyHasPlayable = player.hand.some(c => isPlayableCard(c, game));
     if (alreadyHasPlayable && game.drawingStreak) {
-      return { error: 'You have a playable card — play it or pass your turn' };
+      return { blocked: true }; // silently block — client shows inline hint
     }
 
     ensureDeck(game);

@@ -12,18 +12,16 @@ const COLOR_NAMES = { red:'#ff3b52', yellow:'#ffd93d', green:'#06d6a0', blue:'#4
 
 function getFanStyle(index, total, isSelected) {
   if (total === 0) return {};
-  // Flat stacking: cards overlap, spread across the container width
-  // Each card is 80px wide; overlap tightens as more cards are added
   const cardW = 80;
-  const containerW = 600; // approximate container width
-  const maxVisible = containerW - cardW; // space for all but last card
-  const step = total <= 1 ? 0 : Math.min(cardW - 4, maxVisible / (total - 1));
+  // Overlap: up to 28px hidden per card so the stack stays tight
+  const overlap = Math.max(4, Math.min(28, (total * 20 - 80) / total));
+  const step = cardW - overlap;
   const totalWidth = (total - 1) * step + cardW;
-  const startX = Math.max(0, (containerW - totalWidth) / 2);
-  const left = startX + index * step;
+  // Center using left: 50% and offset from center
+  const offsetFromCenter = -totalWidth / 2 + index * step;
   return {
-    left:   `${left}px`,
-    zIndex: isSelected ? 100 : index,
+    left:      `calc(50% + ${offsetFromCenter}px)`,
+    zIndex:    isSelected ? 100 : index,
   };
 }
 
@@ -41,12 +39,23 @@ export default function Game({
   const [deckShake,       setDeckShake]       = useState(false);
   const [unoTimer,        setUnoTimer]        = useState(null);
   const [turnFlash,       setTurnFlash]       = useState(false);
+  const [toastMsg,        setToastMsg]        = useState('');
 
+  const toastRef       = useRef(null);
   const timerRef       = useRef(null);
   const unoTimerRef    = useRef(null);
   const prevTurnRef    = useRef(null);
   const prevLastAction = useRef(null);
   const prevUnoVuln    = useRef(null);
+
+  // Auto-dismiss error toast after 3s
+  useEffect(() => {
+    if (error) {
+      setToastMsg(error);
+      clearTimeout(toastRef.current);
+      toastRef.current = setTimeout(() => setToastMsg(''), 3000);
+    }
+  }, [error]);
 
   const me            = gameState.players.find(p => p.id === playerId);
   const isHost        = gameState.players[0]?.id === playerId;
@@ -362,7 +371,7 @@ export default function Game({
         <div className="hand-label">
           Your hand <span className="hand-count">({myHandSize})</span>
           {iAmVulnerable && <span className="uno-warn">⚠ Call UNO!</span>}
-          {drawingStreak && <span className="drawing-hint">Play a card or Pass Turn</span>}
+          {drawingStreak && playableSet.size > 0 && <span className="drawing-hint">▲ Play a highlighted card or Pass Turn</span>}
         </div>
 
         <div className="hand-fan-container">
@@ -396,7 +405,7 @@ export default function Game({
         )}
       </div>
 
-      {error && <div className="error-toast">⚠ {error}</div>}
+      {toastMsg && <div className="error-toast">⚠ {toastMsg}</div>}
     </div>
   );
 }
