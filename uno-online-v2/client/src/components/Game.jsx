@@ -10,6 +10,23 @@ import { WaitingRoom } from '../games/SharedRoom';
 
 const COLOR_NAMES = { red:'#ff3b52', yellow:'#ffd93d', green:'#06d6a0', blue:'#4cc9f0' };
 
+function getFanStyle(index, total, isSelected) {
+  if (total === 0) return {};
+  // Flat stacking: cards overlap, spread across the container width
+  // Each card is 80px wide; overlap tightens as more cards are added
+  const cardW = 80;
+  const containerW = 600; // approximate container width
+  const maxVisible = containerW - cardW; // space for all but last card
+  const step = total <= 1 ? 0 : Math.min(cardW - 4, maxVisible / (total - 1));
+  const totalWidth = (total - 1) * step + cardW;
+  const startX = Math.max(0, (containerW - totalWidth) / 2);
+  const left = startX + index * step;
+  return {
+    left:   `${left}px`,
+    zIndex: isSelected ? 100 : index,
+  };
+}
+
 export default function Game({
   gameState, playerId, roomCode, roomLink,
   onStartGame, onPlayCard, onDrawCard, onPassTurn, onRematch, onReturnToLobby,
@@ -348,18 +365,20 @@ export default function Game({
           {drawingStreak && <span className="drawing-hint">Play a card or Pass Turn</span>}
         </div>
 
-        <div className="hand-row">
-          {hand.map((card) => {
+        <div className="hand-fan-container">
+          {hand.map((card, idx) => {
             const isSelected = selectedCard?.id === card.id;
             const isPlayable = playableSet.has(card.id);
+            const style = getFanStyle(idx, hand.length, isSelected);
             return (
               <div
                 key={card.id}
-                className={`hand-card-wrap ${isSelected?'selected':''} ${isPlayable&&isMyTurn?'playable':'not-playable'}`}
+                className={`hand-fan-item ${isSelected?'selected':''} ${isPlayable&&isMyTurn?'playable':'not-playable'}`}
+                style={style}
                 onClick={() => handleCardClick(card, isPlayable)}
               >
                 <UnoCard card={card} selected={isSelected} disabled={!isPlayable||!isMyTurn} />
-                {isPlayable && isMyTurn && !isSelected && <div className="playable-dot" />}
+
               </div>
             );
           })}

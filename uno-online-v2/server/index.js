@@ -126,7 +126,7 @@ io.on('connection', (socket) => {
   // ── Rematch ──────────────────────────────────────────────────────────────
   socket.on('rematch', () => {
     const { info, room } = getRoom(socket.id);
-    if (!room || room.state !== 'finished') return;
+    if (!room) return; // allow exit from any state
     if (room.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can start a rematch' });
     const { rematch } = getGame(room.gameType);
 
@@ -147,7 +147,7 @@ io.on('connection', (socket) => {
   // ── Return to Lobby (same game, reset scores) ──────────────────────────
   socket.on('returnToLobby', () => {
     const { info, room } = getRoom(socket.id);
-    if (!room || room.state !== 'finished') return;
+    if (!room) return; // allow exit from any state
     if (room.players[0]?.id !== info.playerId) return socket.emit('error', { message: 'Only the host can return to lobby' });
     const game  = getGame(room.gameType);
     const fresh = game.createRoom(info.roomCode, room.settings);

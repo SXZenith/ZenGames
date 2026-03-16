@@ -50,6 +50,33 @@ export const GAME_LIST = [
       { key:'jokerRules',   label:'Joker Rules',   type:'toggle', default:true,  desc:'Bonus Yahtzee can fill any open category' },
     ],
   },
+  {
+    id: 'hangman', name: 'Hangman', emoji: '🔤',
+    description: 'Guess the word letter by letter before the man is hanged!',
+    players: '2–4', minPlayers: 2, maxPlayers: 4,
+    settings: [
+      { key:'showCategory', label:'Show Category', type:'toggle', default:true,  desc:'Show the word category as a hint' },
+      { key:'hardMode',     label:'Hard Mode',     type:'toggle', default:false, desc:'Only 5 wrong guesses instead of 6' },
+    ],
+  },
+  {
+    id: 'battleship', name: 'Battleship', emoji: '🚢',
+    description: 'Sink all of your opponents ships to win!',
+    players: '2', minPlayers: 2, maxPlayers: 2,
+    settings: [
+      { key:'gridSize',   label:'Grid Size',   type:'chips',  default:10, options:[8,10], desc:'Size of the battle grid' },
+      { key:'showMisses', label:'Show Misses', type:'toggle', default:true, desc:'Show miss markers on the opponent grid' },
+    ],
+  },
+  {
+    id: 'bounce', name: 'Bounce', emoji: '🔵',
+    description: 'Race to the top! Switch your color to pass through matching obstacles.',
+    players: '2–4', minPlayers: 2, maxPlayers: 4,
+    settings: [
+      { key:'courseLength', label:'Course Length', type:'chips', default:60, options:[40,60,80], desc:'Number of obstacle rows' },
+      { key:'speed',        label:'Speed',         type:'chips', default:2,  options:[1,2,3],    desc:'Ball speed multiplier' },
+    ],
+  },
 ];
 
 const TIMER_OPTIONS = [0,10,15,20,30];

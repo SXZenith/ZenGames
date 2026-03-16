@@ -258,35 +258,27 @@ function forceDraw(game, playerId) {
     return { success: true, drew: count };
   }
 
-  // ── Draw-until-playable: ONE card per click ─────────────────────────────
-  // Server STAYS on this player's turn every time (whether or not playable).
-  // Client shows a "Pass" button once drawingStreak is true.
-  // Player may play any playable card from their hand at any point.
-  // Player ends turn with "Pass" after drawing at least once.
+  // ── Draw-until-playable ─────────────────────────────────────────────────
+  // Player keeps drawing one card at a time until they get a playable card.
+  // Once they have a playable card they CANNOT draw again — must play or pass.
   if (game.settings.drawUntilPlayable) {
+    // Block drawing if they already have a playable card in hand
+    const alreadyHasPlayable = player.hand.some(c => isPlayableCard(c, game));
+    if (alreadyHasPlayable && game.drawingStreak) {
+      return { error: 'You have a playable card — play it or pass your turn' };
+    }
+
     ensureDeck(game);
     if (game.deck.length === 0) return { error: 'Deck is empty' };
 
     const card = game.deck.pop();
     player.hand.push(card);
+    game.drawingStreak = true; // player has drawn at least once
     game.lastAction = { type: 'draw', player: player.name, count: 1 };
 
-    // If the drawn card is playable, end turn (player must now play or pass manually)
-    // But only stay if they have drawn at least one card — allow play from hand
-    const playable = isPlayableCard(card, game);
-    if (playable) {
-      // Card is playable — set streak so Pass Turn button appears, but don't auto-advance
-      game.drawingStreak = true;
-      return { success: true, drew: 1, foundPlayable: true };
-    }
-    // Not playable — keep drawing (don't advance turn, don't set streak yet)
-    // Check if player now has ANY playable card
-    const hasPlayable = player.hand.some(c => isPlayableCard(c, game));
-    if (hasPlayable) {
-      game.drawingStreak = true; // stop auto-drawing, let them play or pass
-    }
-    // If still no playable card, they can click Draw again
-    return { success: true, drew: 1, foundPlayable: hasPlayable };
+    const drawnIsPlayable = isPlayableCard(card, game);
+    // After drawing, check if they now have ANY playable card — if so, stop drawing
+    return { success: true, drew: 1, foundPlayable: drawnIsPlayable };
   }
 
   // ── Normal draw: draw 1 then end turn ─────────────────────────────────

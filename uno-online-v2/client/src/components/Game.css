@@ -249,17 +249,7 @@
 .hand-fan-item.not-playable { cursor:default; }
 .hand-fan-item.playable:not(.selected):hover { filter:brightness(1.2); z-index:50 !important; }
 
-/* Glowing dot under each playable card */
-.playable-dot {
-  position:absolute; bottom:-9px; left:50%; transform:translateX(-50%);
-  width:7px; height:7px; border-radius:50%;
-  background:var(--green); box-shadow:0 0 7px var(--green);
-  animation:dot-pulse 1.2s ease-in-out infinite;
-}
-@keyframes dot-pulse {
-  0%,100%{opacity:1;transform:translateX(-50%) scale(1)}
-  50%{opacity:.5;transform:translateX(-50%) scale(.6)}
-}
+/* playable-dot removed */
 
 .play-hint { margin-top:8px; font-size:.78rem; color:var(--yellow); font-weight:700; text-align:center; }
 
@@ -466,28 +456,36 @@
   margin-top: 4px; min-height: 1em;
 }
 
-/* ===== FLAT HAND ROW (replaces fan) ===== */
-.hand-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  align-items: flex-end;
-  padding: 8px 4px 4px;
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.hand-card-wrap {
+/* ===== HAND STACKED ROW ===== */
+/* Cards overlap in a single flat line, no arc/rotation */
+.hand-fan-container {
   position: relative;
-  cursor: pointer;
-  transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
-  flex-shrink: 0;
+  width: 100%;
+  height: 170px;      /* card height 120 + 50 lift room */
+  overflow: visible;
 }
-.hand-card-wrap:hover        { transform: translateY(-10px); }
-.hand-card-wrap.selected     { transform: translateY(-20px); }
-.hand-card-wrap.not-playable { opacity: 0.55; filter: saturate(0.5); cursor: not-allowed; }
-.hand-card-wrap.playable     { opacity: 1; filter: none; }
+.hand-fan-item {
+  position: absolute;
+  bottom: 0;
+  transform-origin: bottom center;
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), filter 0.15s ease;
+  cursor: pointer;
+}
+/* Non-playable: noticeably darker/desaturated */
+.hand-fan-item.not-playable {
+  filter: brightness(0.45) saturate(0.5);
+  cursor: not-allowed;
+}
+/* Playable: full brightness, slightly lifted */
+.hand-fan-item.playable {
+  filter: brightness(1);
+  transform: translateY(-14px);
+}
+/* Selected: lifted more */
+.hand-fan-item.selected {
+  transform: translateY(-30px) !important;
+  filter: brightness(1.1) !important;
+}
 
 /* ===== UNO CALLED BADGE ===== */
 .uno-called-badge {
