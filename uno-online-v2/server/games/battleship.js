@@ -98,6 +98,7 @@ function getPublicState(room) {
   }
 
   return {
+    gameType: 'battleship',
     state,
     size,
     publicBoards,

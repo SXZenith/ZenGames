@@ -83,6 +83,7 @@ function createRoom(roomCode, settings = {}) {
 
 function getPublicState(room) {
   return {
+    gameType: 'bounce',
     state: room.state,
     course: room.course,
     courseLength: room.courseLength,

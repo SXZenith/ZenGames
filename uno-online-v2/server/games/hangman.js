@@ -79,6 +79,7 @@ function getPublicState(room) {
   const solved = maskedWord.every(c => c !== '_');
   const failed = wrongGuesses.length >= maxWrong;
   return {
+    gameType: 'hangman',
     state,
     maskedWord,
     category: showCategory ? category : null,
