@@ -12,16 +12,20 @@ const COLOR_NAMES = { red:'#ff3b52', yellow:'#ffd93d', green:'#06d6a0', blue:'#4
 
 function getFanStyle(index, total, isSelected) {
   if (total === 0) return {};
-  const cardW = 80;
-  // Overlap: up to 28px hidden per card so the stack stays tight
-  const overlap = Math.max(4, Math.min(28, (total * 20 - 80) / total));
-  const step = cardW - overlap;
-  const totalWidth = (total - 1) * step + cardW;
-  // Center using left: 50% and offset from center
-  const offsetFromCenter = -totalWidth / 2 + index * step;
+  // Use viewport width to keep cards on screen
+  const vw = Math.min(window.innerWidth, 600); // cap at 600px
+  const cardW = Math.min(80, Math.floor((vw - 32) / Math.max(total, 1) * 1.4));
+  const clampedCard = Math.max(40, Math.min(80, cardW));
+  const overlap = total <= 7
+    ? Math.max(0, clampedCard - Math.floor((vw - 32 - clampedCard) / Math.max(total - 1, 1)))
+    : clampedCard - Math.floor((vw - 32 - clampedCard) / Math.max(total - 1, 1));
+  const step = Math.max(18, clampedCard - Math.max(0, overlap));
+  const totalWidth = (total - 1) * step + clampedCard;
+  const startOffset = -totalWidth / 2;
+  const offsetFromCenter = startOffset + index * step;
   return {
-    left:      `calc(50% + ${offsetFromCenter}px)`,
-    zIndex:    isSelected ? 100 : index,
+    left:   `calc(50% + ${offsetFromCenter}px)`,
+    zIndex: isSelected ? 100 : index,
   };
 }
 
@@ -83,7 +87,10 @@ export default function Game({
   const drawingStreak = gameState.drawingStreak === true && isMyTurn;
 
   // UNO button: show at 1 OR 2 cards — can call after playing down to 1
-  const showUnoButton = isMyTurn && myHandSize <= 2 && myHandSize > 0 && !iCalledUno;
+  const showUnoButton = !iCalledUno && (
+    (isMyTurn && myHandSize === 2) ||       // your turn, about to play 2nd-to-last
+    (!isMyTurn && myHandSize === 1)          // just played down to 1, forgot to call
+  );
 
   // ── Sounds ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -276,13 +283,13 @@ export default function Game({
     <div className="game">
       {pendingWildCard && <ColorPicker onChoose={handleColorChosen} />}
 
-      {turnFlash && (
+      {turnFlash && !stackAnim && (
         <div className="turn-flash-overlay">
           <div className="turn-flash-text">YOUR TURN</div>
         </div>
       )}
 
-      {/* Stack animation */}
+      {/* Stack animation — suppresses YOUR TURN flash */}
       {stackAnim && (
         <div className="stack-anim-overlay">
           <div className="stack-anim-card">
@@ -426,7 +433,7 @@ export default function Game({
             🃏 UNO!
           </button>
         )}
-        {iCalledUno && myHandSize <= 2 && myHandSize > 0 && (
+        {iCalledUno && (myHandSize === 1 || myHandSize === 2) && (
           <div className="uno-called-badge">✓ UNO Called!</div>
         )}
       </div>

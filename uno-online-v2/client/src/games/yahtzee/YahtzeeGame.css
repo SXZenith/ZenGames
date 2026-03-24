@@ -236,14 +236,46 @@
 .yz-chart-close:hover { background:rgba(255,255,255,0.15);color:#c8deff; }
 .yz-chart-table { padding:8px 12px 16px; }
 .yz-chart-row {
-  display:grid;grid-template-columns:1.3fr 2fr 1fr 1.5fr;
-  gap:8px;align-items:center;
-  padding:9px 8px;border-bottom:1px solid #1a2a3e;
-  font-size:0.8rem;
+  display: grid;
+  grid-template-columns: 1.2fr 2.6fr 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 8px;
+  border-bottom: 1px solid #1a2a3e;
 }
-.yz-chart-row:last-child { border-bottom:none; }
-.yz-chart-row:nth-child(odd) { background:rgba(255,255,255,0.02); }
-.yz-chart-name { font-weight:700;color:#c8deff; }
-.yz-chart-desc { color:#6a8aaa;font-size:0.75rem; }
-.yz-chart-score { color:#4cc9f0;font-weight:800;text-align:right; }
-.yz-chart-ex { color:#4a6680;font-size:0.72rem;font-style:italic; }
+.yz-chart-row:last-child { border-bottom: none; }
+.yz-chart-row:nth-child(odd) { background: rgba(255,255,255,0.02); }
+.yz-chart-name { font-weight:700; color:#c8deff; font-size:0.78rem; }
+.yz-chart-score { color:#4cc9f0; font-weight:800; text-align:right; font-size:0.78rem; white-space:nowrap; }
+
+/* Dice row in chart */
+.yz-chart-dice-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.yz-chart-die {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+}
+.yz-chart-die .die-face { fill: #1c2e44; stroke: #2d4460; stroke-width: 2; }
+.yz-chart-die .die-dot  { fill: #c8deff; }
+.yz-chart-die .die-shine { fill: rgba(255,255,255,0.06); }
+.yz-chart-die.highlight .die-face { fill: #0e2048; stroke: #4cc9f0; stroke-width: 3; }
+.die-dot-hi { fill: #4cc9f0; }
+
+/* Divider row */
+.yz-chart-divider {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #3a5570;
+  padding: 10px 8px 4px;
+  border-bottom: 1px solid #1a2a3e;
+}
+
+/* Bonus row */
+.bonus-row { grid-template-columns: 1.2fr 2.6fr 1fr; }
+.yz-chart-bonus-desc { color: #6a8aaa; font-size: 0.72rem; }

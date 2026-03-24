@@ -134,6 +134,32 @@ const DOTS = {
   6:[[28,23],[72,23],[28,50],[72,50],[28,77],[72,77]],
 };
 
+
+// ─── Mini die for chart (display only, no interaction) ───────────────────────
+function ChartDie({ value, highlight }) {
+  return (
+    <svg viewBox="0 0 100 100" className={`yz-chart-die ${highlight ? 'highlight' : ''}`}>
+      <rect x="6" y="8" width="90" height="90" rx="16" fill="rgba(0,0,0,0.35)"/>
+      <rect x="4" y="4" width="90" height="90" rx="16" className="die-face"/>
+      <rect x="12" y="8" width="30" height="10" rx="5" className="die-shine"/>
+      {(DOTS[value]||[]).map(([cx,cy],i) =>
+        <circle key={i} cx={cx} cy={cy} r="9" className={highlight ? "die-dot-hi" : "die-dot"}/>
+      )}
+    </svg>
+  );
+}
+
+// ─── A row of 5 dice for the chart ───────────────────────────────────────────
+function ChartDice({ dice, highlights }) {
+  return (
+    <div className="yz-chart-dice-row">
+      {dice.map((v, i) => (
+        <ChartDie key={i} value={v} highlight={highlights ? highlights[i] : false} />
+      ))}
+    </div>
+  );
+}
+
 // ─── Die ─────────────────────────────────────────────────────────────────────
 function Die({ value, held, rolling, canHold, onClick }) {
   return (
@@ -325,25 +351,48 @@ export default function YahtzeeGame({
               <button className="yz-chart-close" onClick={()=>setShowChart(false)}>✕</button>
             </div>
             <div className="yz-chart-table">
+              {/* Ones – Sixes */}
               {[
-                {name:'Ones–Sixes',  desc:'Sum of that number',           score:'Sum',    example:'3×2s = 6 pts'},
-                {name:'3 of a Kind', desc:'3+ same dice',                 score:'Sum all',example:'3+3+3+2+1 = 12'},
-                {name:'4 of a Kind', desc:'4+ same dice',                 score:'Sum all',example:'4+4+4+4+1 = 17'},
-                {name:'Full House',  desc:'3-of-a-kind + pair',           score:'25 pts', example:'3×5 + 2×2'},
-                {name:'Sm. Straight',desc:'4 in a row',                   score:'30 pts', example:'1-2-3-4'},
-                {name:'Lg. Straight',desc:'5 in a row',                   score:'40 pts', example:'2-3-4-5-6'},
-                {name:'YAHTZEE!',    desc:'5 of same — 1st is 50',        score:'50 pts', example:'5×6 = YAHTZEE!'},
-                {name:'Bonus Yahtzee',desc:'Extra Yahtzee (joker rules)',  score:'+100',   example:'2nd+ Yahtzee'},
-                {name:'Chance',      desc:'Any dice, sum all',            score:'Sum all',example:'1+2+3+4+5 = 15'},
-                {name:'Upper Bonus', desc:'Upper ≥ 63 → bonus',           score:'+35',    example:'Avg 3 per die'},
-              ].map((row,i)=>(
+                {name:'Ones',   dice:[1,1,1,3,5], hi:[1,1,1,0,0], score:'Sum of 1s'},
+                {name:'Twos',   dice:[2,2,4,5,6], hi:[1,1,0,0,0], score:'Sum of 2s'},
+                {name:'Threes', dice:[3,3,3,1,4], hi:[1,1,1,0,0], score:'Sum of 3s'},
+                {name:'Fours',  dice:[4,4,2,3,6], hi:[1,1,0,0,0], score:'Sum of 4s'},
+                {name:'Fives',  dice:[5,5,5,2,1], hi:[1,1,1,0,0], score:'Sum of 5s'},
+                {name:'Sixes',  dice:[6,6,6,6,2], hi:[1,1,1,1,0], score:'Sum of 6s'},
+              ].map((row,i) => (
                 <div key={i} className="yz-chart-row">
                   <span className="yz-chart-name">{row.name}</span>
-                  <span className="yz-chart-desc">{row.desc}</span>
+                  <ChartDice dice={row.dice} highlights={row.hi} />
                   <span className="yz-chart-score">{row.score}</span>
-                  <span className="yz-chart-ex">{row.example}</span>
                 </div>
               ))}
+
+              <div className="yz-chart-divider">Lower Section</div>
+
+              {/* Lower section — each with specific dice examples */}
+              {[
+                {name:'3 of a Kind', dice:[4,4,4,2,6],     hi:[1,1,1,0,0], score:'Sum all dice'},
+                {name:'4 of a Kind', dice:[3,3,3,3,5],     hi:[1,1,1,1,0], score:'Sum all dice'},
+                {name:'Full House',  dice:[5,5,5,2,2],     hi:[1,1,1,1,1], score:'25 pts'},
+                {name:'Sm. Straight',dice:[1,2,3,4,6],     hi:[1,1,1,1,0], score:'30 pts'},
+                {name:'Lg. Straight',dice:[2,3,4,5,6],     hi:[1,1,1,1,1], score:'40 pts'},
+                {name:'YAHTZEE!',    dice:[6,6,6,6,6],     hi:[1,1,1,1,1], score:'50 pts'},
+                {name:'Bonus Yahtzee',dice:[3,3,3,3,3],    hi:[1,1,1,1,1], score:'+100 pts'},
+                {name:'Chance',      dice:[1,3,4,5,6],     hi:[0,0,0,0,0], score:'Sum all dice'},
+              ].map((row,i) => (
+                <div key={i} className="yz-chart-row">
+                  <span className="yz-chart-name">{row.name}</span>
+                  <ChartDice dice={row.dice} highlights={row.hi} />
+                  <span className="yz-chart-score">{row.score}</span>
+                </div>
+              ))}
+
+              <div className="yz-chart-divider">Bonuses</div>
+              <div className="yz-chart-row bonus-row">
+                <span className="yz-chart-name">Upper Bonus</span>
+                <span className="yz-chart-bonus-desc">Score ≥ 63 in the upper section (avg 3 of each die)</span>
+                <span className="yz-chart-score">+35 pts</span>
+              </div>
             </div>
           </div>
         </div>
