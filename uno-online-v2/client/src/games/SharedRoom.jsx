@@ -9,6 +9,18 @@ import './SharedRoom.css';
 // ─────────────────────────────────────────────────────────────────────────────
 // GAME DEFINITIONS (single source of truth for the picker)
 // ─────────────────────────────────────────────────────────────────────────────
+// Player color options — faded to match dark theme
+export const PLAYER_COLORS = [
+  { key:'cyan',   hex:'#4cc9f0', label:'Cyan'   },
+  { key:'green',  hex:'#06d6a0', label:'Green'  },
+  { key:'yellow', hex:'#ffd93d', label:'Yellow' },
+  { key:'red',    hex:'#ff6b6b', label:'Red'    },
+  { key:'purple', hex:'#c77dff', label:'Purple' },
+  { key:'orange', hex:'#f4a261', label:'Orange' },
+  { key:'pink',   hex:'#ff9ec4', label:'Pink'   },
+  { key:'blue',   hex:'#4361ee', label:'Blue'   },
+];
+
 export const GAME_LIST = [
   {
     id: 'uno', name: 'UNO', emoji: '🃏',
@@ -61,11 +73,20 @@ export const GAME_LIST = [
   },
   {
     id: 'battleship', name: 'Battleship', emoji: '🚢',
-    description: 'Sink all of your opponents ships to win!',
+    description: "Sink all of your opponent's ships to win!",
     players: '2', minPlayers: 2, maxPlayers: 2,
     settings: [
       { key:'gridSize',   label:'Grid Size',   type:'chips',  default:10, options:[8,10], desc:'Size of the battle grid' },
       { key:'showMisses', label:'Show Misses', type:'toggle', default:true, desc:'Show miss markers on the opponent grid' },
+    ],
+  },
+  {
+    id: 'tetris', name: 'Chaos Tetris', emoji: '🧱',
+    description: 'Both players control the same Tetris board simultaneously. Pure chaos!',
+    players: '2–4', minPlayers: 2, maxPlayers: 4,
+    settings: [
+      { key:'startSpeed',   label:'Start Speed',   type:'chips',  default:800, options:[400,600,800,1000], desc:'Initial drop speed (ms)' },
+      { key:'garbageLines', label:'Garbage Lines',  type:'toggle', default:true, desc:'Line clears send garbage rows' },
     ],
   },
   {
@@ -268,12 +289,15 @@ export function useChat(onChatMessage, onSendChat) {
 // ─────────────────────────────────────────────────────────────────────────────
 export function WaitingRoom({
   gameState, playerId, roomCode, roomLink,
-  onStartGame, onChangeGame,
+  onStartGame, onChangeGame, onChangeColor,
   error,
 }) {
-  const [copied, setCopied] = useState(false);
-  const isHost = gameState.players[0]?.id === playerId;
+  const [copied,       setCopied]       = useState(false);
+  const [pickingColor, setPickingColor] = useState(false);
+  const isHost     = gameState.players[0]?.id === playerId;
   const minPlayers = gameState.minPlayers ?? 2;
+  const myPlayer   = gameState.players?.find(p => p.id === playerId);
+  const myColor    = myPlayer?.color || null;
 
   const copy = (text) => navigator.clipboard.writeText(text).then(() => {
     setCopied(true); setTimeout(() => setCopied(false), 2000);

@@ -259,26 +259,29 @@ function forceDraw(game, playerId) {
   }
 
   // ── Draw-until-playable ─────────────────────────────────────────────────
-  // Player keeps drawing one card at a time until they get a playable card.
-  // Once they have a playable card they CANNOT draw again — must play or pass.
+  // Player MUST keep drawing until they get a playable card.
+  // They cannot stop drawing early — Pass Turn is only allowed when deck is empty.
   if (game.settings.drawUntilPlayable) {
-    // Block drawing if they already have a playable card in hand
+    // Always block drawing if they already have ANY playable card
     const alreadyHasPlayable = player.hand.some(c => isPlayableCard(c, game));
-    if (alreadyHasPlayable && game.drawingStreak) {
-      return { blocked: true }; // silently block — client shows inline hint
+    if (alreadyHasPlayable) {
+      return { blocked: true }; // must play a card, cannot draw more
     }
 
     ensureDeck(game);
-    if (game.deck.length === 0) return { error: 'Deck is empty' };
+    if (game.deck.length === 0) {
+      // Deck empty and no playable card — force pass
+      game.drawingStreak = true; // allow passTurn
+      return { blocked: true, deckEmpty: true };
+    }
 
     const card = game.deck.pop();
     player.hand.push(card);
-    game.drawingStreak = true; // player has drawn at least once
+    game.drawingStreak = true;
     game.lastAction = { type: 'draw', player: player.name, count: 1 };
 
-    const drawnIsPlayable = isPlayableCard(card, game);
-    // After drawing, check if they now have ANY playable card — if so, stop drawing
-    return { success: true, drew: 1, foundPlayable: drawnIsPlayable };
+    const nowHasPlayable = player.hand.some(c => isPlayableCard(c, game));
+    return { success: true, drew: 1, foundPlayable: nowHasPlayable };
   }
 
   // ── Normal draw: draw 1 then end turn ─────────────────────────────────
@@ -292,11 +295,17 @@ function forceDraw(game, playerId) {
   return { success: true, drew: 1 };
 }
 
-// End turn without playing (only valid after drawing in drawUntilPlayable mode)
+// End turn without playing — only when deck is empty and no playable card exists
 function passTurn(game, playerId) {
   const playerIndex = game.players.findIndex(p => p.id === playerId);
   if (playerIndex !== game.currentPlayerIndex) return { error: 'Not your turn' };
-  if (!game.drawingStreak) return { error: 'You must draw at least one card before passing' };
+  if (!game.drawingStreak) return { error: 'You must draw before passing' };
+  // Only allow pass if deck is empty — otherwise must keep drawing
+  ensureDeck(game);
+  const player = game.players[playerIndex];
+  const hasPlayable = player.hand.some(c => isPlayableCard(c, game));
+  if (game.deck.length > 0 && !hasPlayable) return { error: 'Keep drawing — deck is not empty yet' };
+  if (hasPlayable) return { error: 'You have a playable card — play it!' };
   game.drawingStreak = false;
   advanceTurn(game);
   return { success: true };

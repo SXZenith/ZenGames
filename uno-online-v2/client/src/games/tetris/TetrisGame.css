@@ -1,0 +1,383 @@
+/* ── Tetris Game — Retro Arcade Dark ── */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&display=swap');
+
+.tt-game {
+  min-height: 100vh;
+  background: #050810;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 12px 12px;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Orbitron', monospace;
+}
+
+/* Scanline effect */
+.tt-game::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Layout ── */
+.tt-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Panels ── */
+.tt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 160px;
+}
+
+/* ── Stat boxes ── */
+.tt-stat-box {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(0,245,255,0.15);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.tt-stat-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  letter-spacing: 2px;
+  color: rgba(0,245,255,0.6);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.tt-stat-value {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+}
+.score-val {
+  font-size: 1.2rem;
+  background: linear-gradient(135deg, #00f5ff, #c840ff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* Level bar */
+.tt-level-bar {
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.tt-level-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00f5ff, #c840ff);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Players */
+.players-box { }
+.tt-player-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.5);
+}
+.tt-player-row.me { color: #00f5ff; }
+.tt-player-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  flex-shrink: 0;
+}
+.tt-player-row.me .tt-player-dot { background: #00f5ff; box-shadow: 0 0 6px #00f5ff; }
+.tt-player-name { font-family: 'Orbitron', monospace; font-size: 0.55rem; }
+
+/* Controls hint */
+.tt-controls-hint {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.tt-hint-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 1.5px;
+  margin-bottom: 6px;
+}
+.tt-hint-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.55rem;
+  color: rgba(255,255,255,0.4);
+  padding: 2px 0;
+}
+kbd {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.5rem;
+  color: rgba(255,255,255,0.6);
+}
+
+/* ── Board ── */
+.tt-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.tt-board-wrapper {
+  position: relative;
+  border: 2px solid rgba(0,245,255,0.3);
+  border-radius: 4px;
+  box-shadow:
+    0 0 30px rgba(0,245,255,0.1),
+    inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+.tt-board {
+  display: grid;
+  background: #060d1a;
+  position: relative;
+}
+
+@keyframes shake {
+  0%,100% { transform: translateX(0) rotate(0deg); }
+  15% { transform: translateX(-6px) rotate(-1deg); }
+  30% { transform: translateX(6px) rotate(1deg); }
+  45% { transform: translateX(-4px) rotate(-0.5deg); }
+  60% { transform: translateX(4px) rotate(0.5deg); }
+  75% { transform: translateX(-2px); }
+}
+.tt-board.shake { animation: shake 0.5s ease; }
+
+/* ── Cells ── */
+.tt-cell {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255,255,255,0.04);
+  box-sizing: border-box;
+}
+.tt-cell.empty {
+  background: transparent;
+}
+.tt-cell.filled {
+  border-radius: 2px;
+  transition: background 0.05s;
+}
+.tt-cell.active {
+  border-radius: 3px;
+  z-index: 2;
+}
+.tt-cell.ghost {
+  border-radius: 2px;
+  border: 1px dashed rgba(255,255,255,0.15) !important;
+}
+@keyframes cell-flash {
+  0%,100% { background: white !important; }
+  50% { background: #00f5ff !important; }
+}
+.tt-cell.flash {
+  animation: cell-flash 0.15s ease 2;
+}
+
+/* ── Game over overlay ── */
+.tt-gameover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  animation: fadeIn 0.5s ease;
+  border-radius: 2px;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.tt-gameover-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 1.4rem;
+  color: #ff3131;
+  text-shadow: 0 0 20px #ff3131, 0 0 40px #ff313188;
+  animation: flicker 1.5s infinite;
+  letter-spacing: 2px;
+}
+@keyframes flicker {
+  0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:0.4} 94%{opacity:1} 96%{opacity:0.7} 97%{opacity:1}
+}
+.tt-gameover-score {
+  font-family: 'Orbitron', monospace;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+/* ── Right panel ── */
+.next-box .tt-next-piece {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 4px;
+}
+.tt-preview-grid { position: relative; flex-shrink: 0; }
+.tt-preview-cell {
+  position: absolute;
+  border-radius: 2px;
+}
+
+/* Action feed */
+.feed-box { }
+.tt-action-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 80px;
+}
+.tt-action-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 0.5rem;
+  transition: opacity 0.3s;
+}
+.tt-action-player { color: rgba(255,255,255,0.5); font-size: 0.45rem; }
+.tt-action-item.mine .tt-action-player { color: #00f5ff; }
+.tt-action-label { color: rgba(255,255,255,0.7); font-size: 0.5rem; }
+.tt-action-item.mine .tt-action-label { color: #c840ff; }
+
+/* Combo */
+.combo-box {
+  text-align: center;
+  border-color: rgba(255,140,0,0.4) !important;
+  background: rgba(255,140,0,0.08) !important;
+}
+.tt-combo-count {
+  font-family: 'Orbitron', monospace;
+  font-size: 2rem;
+  font-weight: 900;
+  color: #ff8c00;
+  text-shadow: 0 0 20px #ff8c00;
+}
+.tt-combo-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  color: rgba(255,140,0,0.7);
+  letter-spacing: 2px;
+}
+
+/* Scores */
+.tt-score-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0;
+  font-size: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.tt-score-row:last-child { border-bottom: none; }
+.tt-score-row.me { color: #00f5ff; }
+.tt-score-rank { color: rgba(255,255,255,0.3); width: 14px; font-size: 0.45rem; }
+.tt-score-name { flex: 1; color: rgba(255,255,255,0.6); font-size: 0.45rem; }
+.tt-score-row.me .tt-score-name { color: #00f5ff; }
+.tt-score-pts { font-weight: 700; color: #ffe600; font-size: 0.5rem; }
+
+/* ── Floating events ── */
+.tt-events {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 500;
+  pointer-events: none;
+}
+@keyframes eventPop {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.8); }
+  15%  { opacity: 1; transform: translateY(0) scale(1.05); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-20px) scale(0.9); }
+}
+.tt-event-pop {
+  background: rgba(0,0,0,0.85);
+  border: 1px solid rgba(0,245,255,0.4);
+  border-radius: 50px;
+  padding: 8px 20px;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(0,245,255,0.5);
+  box-shadow: 0 4px 20px rgba(0,245,255,0.15);
+  animation: eventPop 3s ease forwards;
+  white-space: nowrap;
+}
+
+/* Combo burst */
+@keyframes comboBurst {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  70%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8) translateY(-30px); }
+}
+.tt-combo-burst {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 1.8rem;
+  color: #ff8c00;
+  text-shadow: 0 0 30px #ff8c00, 0 0 60px #ff8c0088;
+  pointer-events: none;
+  z-index: 600;
+  animation: comboBurst 1.5s ease forwards;
+  white-space: nowrap;
+}
+
+/* Score pop */
+@keyframes scorePop {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(0) scale(0.7); }
+  20%  { opacity: 1; transform: translateX(-50%) translateY(-10px) scale(1.1); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scale(0.9); }
+}
+.tt-score-pop {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  font-family: 'Orbitron', monospace;
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #ffe600;
+  text-shadow: 0 0 20px #ffe600;
+  pointer-events: none;
+  z-index: 500;
+  animation: scorePop 1s ease forwards;
+}

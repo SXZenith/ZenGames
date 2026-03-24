@@ -157,6 +157,17 @@ io.on('connection', (socket) => {
     broadcastState(info.roomCode);
   });
 
+  // ── Set Player Color ─────────────────────────────────────────────────────────
+  socket.on('setPlayerColor', ({ color }) => {
+    const { info, room } = getRoom(socket.id);
+    if (!room) return;
+    const player = room.players.find(p => p.id === info.playerId);
+    if (player) {
+      player.color = color;
+      broadcastState(info.roomCode);
+    }
+  });
+
   // ── Change Game (host only, waiting state) ───────────────────────────────
   // Switches game type in-place — players stay connected, scores preserved.
   socket.on('changeGame', ({ gameType, settings = {} }) => {

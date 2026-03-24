@@ -29,7 +29,7 @@ export default function Game({
   gameState, playerId, roomCode, roomLink,
   onStartGame, onPlayCard, onDrawCard, onPassTurn, onRematch, onReturnToLobby,
   onCallUno, onCatchUno, onUpdateSettings, onSendReaction, onSendChat,
-  onChangeGame,
+  onChangeGame, onChangeColor,
   error,
 }) {
   const [selectedCard,    setSelectedCard]    = useState(null);
@@ -40,13 +40,26 @@ export default function Game({
   const [unoTimer,        setUnoTimer]        = useState(null);
   const [turnFlash,       setTurnFlash]       = useState(false);
   const [toastMsg,        setToastMsg]        = useState('');
+  const [stackAnim,       setStackAnim]       = useState(null); // {type, count}
 
   const toastRef       = useRef(null);
+  const prevPendingRef  = useRef(0);
   const timerRef       = useRef(null);
   const unoTimerRef    = useRef(null);
   const prevTurnRef    = useRef(null);
   const prevLastAction = useRef(null);
   const prevUnoVuln    = useRef(null);
+
+  // Stack animation: detect when pendingDraw increases dramatically
+  useEffect(() => {
+    const pending = gameState.pendingDraw || 0;
+    const prev    = prevPendingRef.current;
+    if (pending > prev && pending >= 4) {
+      setStackAnim({ type: gameState.pendingDrawType, count: pending });
+      setTimeout(() => setStackAnim(null), 2200);
+    }
+    prevPendingRef.current = pending;
+  }, [gameState.pendingDraw]);
 
   // Auto-dismiss error toast after 3s
   useEffect(() => {
@@ -69,8 +82,8 @@ export default function Game({
   const isFinished    = gameState.state === 'finished';
   const drawingStreak = gameState.drawingStreak === true && isMyTurn;
 
-  // UNO button: only on YOUR turn with exactly 2 cards, not yet called
-  const showUnoButton = isMyTurn && myHandSize === 2 && !iCalledUno;
+  // UNO button: show at 1 OR 2 cards — can call after playing down to 1
+  const showUnoButton = isMyTurn && myHandSize <= 2 && myHandSize > 0 && !iCalledUno;
 
   // ── Sounds ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -152,7 +165,7 @@ export default function Game({
   if (gameState.state === 'waiting') {
     return <WaitingRoom gameState={{...gameState, maxPlayers:4}}
       playerId={playerId} roomCode={roomCode} roomLink={roomLink}
-      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error} />;
+      onStartGame={onStartGame} onChangeGame={onChangeGame} onChangeColor={onChangeColor} error={error} />;
   }
 
   // ════════════════════════════════════════════════════════════════════════
@@ -269,6 +282,18 @@ export default function Game({
         </div>
       )}
 
+      {/* Stack animation */}
+      {stackAnim && (
+        <div className="stack-anim-overlay">
+          <div className="stack-anim-card">
+            {stackAnim.type === 'draw2' ? '+2' : '+4'}
+          </div>
+          <div className="stack-anim-total">
+            {stackAnim.count} CARDS INCOMING! 💀
+          </div>
+        </div>
+      )}
+
       {/* ── Opponents ── */}
       <div className="opponents-row">
         {opponents.map(p => {
@@ -346,8 +371,8 @@ export default function Game({
             {isMyTurn && (
               <button className="draw-btn" onClick={onDrawCard}>{drawLabel}</button>
             )}
-            {isMyTurn && drawingStreak && gameState.pendingDraw===0 && (
-              <button className="pass-btn" onClick={onPassTurn}>Pass Turn</button>
+            {isMyTurn && drawingStreak && gameState.pendingDraw===0 && gameState.deckSize===0 && (
+              <button className="pass-btn" onClick={onPassTurn}>Pass (deck empty)</button>
             )}
           </div>
           <div className="discard-area">
@@ -371,7 +396,8 @@ export default function Game({
         <div className="hand-label">
           Your hand <span className="hand-count">({myHandSize})</span>
           {iAmVulnerable && <span className="uno-warn">⚠ Call UNO!</span>}
-          {drawingStreak && playableSet.size > 0 && <span className="drawing-hint">▲ Play a highlighted card or Pass Turn</span>}
+          {drawingStreak && playableSet.size > 0 && <span className="drawing-hint">▲ You drew a playable card — play it!</span>}
+          {drawingStreak && playableSet.size === 0 && <span className="drawing-hint">Keep drawing until you get a playable card…</span>}
         </div>
 
         <div className="hand-fan-container">
@@ -400,7 +426,7 @@ export default function Game({
             🃏 UNO!
           </button>
         )}
-        {isMyTurn && iCalledUno && myHandSize === 2 && (
+        {iCalledUno && myHandSize <= 2 && myHandSize > 0 && (
           <div className="uno-called-badge">✓ UNO Called!</div>
         )}
       </div>

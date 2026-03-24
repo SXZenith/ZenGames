@@ -8,6 +8,7 @@ import YahtzeeGame   from './games/yahtzee/YahtzeeGame';
 import HangmanGame    from './games/hangman/HangmanGame';
 import BattleshipGame from './games/battleship/BattleshipGame';
 import BounceGame     from './games/bounce/BounceGame';
+import TetrisGame     from './games/tetris/TetrisGame';
 import { isMuted, toggleMute, soundReaction } from './sounds';
 import './App.css';
 import './AppHUD.css';
@@ -94,6 +95,7 @@ export default function App() {
   const rematch        = useCallback(() => emit('rematch'), []);
   const returnToLobby  = useCallback(() => emit('returnToLobby'), []);
   const changeGame     = useCallback((gameType, settings) => emit('changeGame', { gameType, settings }), []);
+  const changeColor    = useCallback((color) => emit('setPlayerColor', { color }), []);
   const updateSettings = useCallback((s) => emit('updateSettings', s), []);
   const gameAction     = useCallback((action, payload = {}) => emit('gameAction', { action, payload }), []);
   const sendReaction   = useCallback((emoji) => emit('sendReaction', { emoji }), []);
@@ -135,6 +137,7 @@ export default function App() {
     onStartGame: startGame, onRematch: rematch,
     onReturnToLobby: returnToLobby,
     onChangeGame: changeGame,
+    onChangeColor: changeColor,
     onUpdateSettings: updateSettings,
     onSendReaction: sendReaction,
     onReaction: reactionBridgeRef.current,
@@ -166,6 +169,8 @@ export default function App() {
         <BattleshipGame {...sharedProps} onGameAction={gameAction} />
       ) : gameType === 'bounce' ? (
         <BounceGame {...sharedProps} onGameAction={gameAction} />
+      ) : gameType === 'tetris' ? (
+        <TetrisGame {...sharedProps} onGameAction={gameAction} />
       ) : (
         <div style={{color:'white',padding:40}}>Unknown game: {gameType}</div>
       )}

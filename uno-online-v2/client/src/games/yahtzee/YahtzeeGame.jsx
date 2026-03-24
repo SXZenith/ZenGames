@@ -161,7 +161,7 @@ function Die({ value, held, rolling, canHold, onClick }) {
 }
 
 // ─── Scorecard for ONE player ─────────────────────────────────────────────────
-function Scorecard({ player, scoreData, isMe, isActive, dice, canScore, onScore, hoverCat, setHoverCat, scoreFlash }) {
+function Scorecard({ player, scoreData, isMe, isActive, dice, canScore, onScore, hoverCat, setHoverCat, scoreFlash, isLeader, playerColor }) {
   const sheet   = scoreData?.sheet    || {};
   const ubSub   = scoreData?.upperSubtotal ?? 0;
   const ubBonus = scoreData?.upperBonus    ?? 0;
@@ -198,11 +198,13 @@ function Scorecard({ player, scoreData, isMe, isActive, dice, canScore, onScore,
   }
 
   return (
-    <div className={`yz-scorecard ${isActive?'active-player':''} ${isMe?'mine':''}`}>
-      <div className="yz-sc-player-header">
+    <div className={`yz-scorecard ${isActive?'active-player':''} ${isMe?'mine':''} ${isLeader?'leader':''}`} style={playerColor?{'--player-color':playerColor}:{}}>
+      <div className="yz-sc-player-header" style={playerColor?{borderBottom:`2px solid ${playerColor}44`}:{}}>
+        {playerColor && <div className="yz-player-dot" style={{background:playerColor,boxShadow:`0 0 8px ${playerColor}88`}}/>}
         <span className="yz-sc-player-name">{player.name}{isMe?' (you)':''}</span>
-        {isActive && <span className="yz-active-badge">🎲 Playing</span>}
-        <span className="yz-sc-total-mini">{total}</span>
+        {isLeader && total > 0 && <span className="yz-leader-crown" title="Leading">👑</span>}
+        {isActive && <span className="yz-active-badge">🎲</span>}
+        <span className="yz-sc-total-mini" style={playerColor?{color:playerColor}:{}}>{total}</span>
       </div>
 
       <div className="yz-section-head">
@@ -223,9 +225,11 @@ function Scorecard({ player, scoreData, isMe, isActive, dice, canScore, onScore,
       <div className="yz-section-head top-gap">Lower</div>
       {CATEGORIES.filter(c=>!UPPER_CATS.includes(c)).map(cat=><Row key={cat} cat={cat}/>)}
 
-      <div className="yz-grand-total">
+      <div className={`yz-grand-total ${isMe?'mine':''}`}>
         <span>TOTAL</span>
-        <span className="yz-grand-val">{total}</span>
+        <div className="yz-grand-right">
+          <span className="yz-grand-val">{total}</span>
+        </div>
       </div>
     </div>
   );
@@ -237,6 +241,7 @@ export default function YahtzeeGame({
   onStartGame, onRematch, onReturnToLobby, onChangeGame, onGameAction, error,
 }) {
   const [rollingIdx,  setRollingIdx]  = useState([]);
+  const [showChart,   setShowChart]   = useState(false);
   const [scoreFlash,  setScoreFlash]  = useState(null);
   const [hoverCat,    setHoverCat]    = useState(null);
   const [yourTurnAnim,setYourTurnAnim]= useState(false);
@@ -311,6 +316,39 @@ export default function YahtzeeGame({
     <div className="yz-game">
       {yourTurnAnim && <div className="yz-your-turn-flash">🎲 YOUR TURN!</div>}
 
+      {/* Combo chart modal */}
+      {showChart && (
+        <div className="yz-chart-overlay" onClick={()=>setShowChart(false)}>
+          <div className="yz-chart-modal" onClick={e=>e.stopPropagation()}>
+            <div className="yz-chart-header">
+              <span>📊 Scoring Guide</span>
+              <button className="yz-chart-close" onClick={()=>setShowChart(false)}>✕</button>
+            </div>
+            <div className="yz-chart-table">
+              {[
+                {name:'Ones–Sixes',  desc:'Sum of that number',           score:'Sum',    example:'3×2s = 6 pts'},
+                {name:'3 of a Kind', desc:'3+ same dice',                 score:'Sum all',example:'3+3+3+2+1 = 12'},
+                {name:'4 of a Kind', desc:'4+ same dice',                 score:'Sum all',example:'4+4+4+4+1 = 17'},
+                {name:'Full House',  desc:'3-of-a-kind + pair',           score:'25 pts', example:'3×5 + 2×2'},
+                {name:'Sm. Straight',desc:'4 in a row',                   score:'30 pts', example:'1-2-3-4'},
+                {name:'Lg. Straight',desc:'5 in a row',                   score:'40 pts', example:'2-3-4-5-6'},
+                {name:'YAHTZEE!',    desc:'5 of same — 1st is 50',        score:'50 pts', example:'5×6 = YAHTZEE!'},
+                {name:'Bonus Yahtzee',desc:'Extra Yahtzee (joker rules)',  score:'+100',   example:'2nd+ Yahtzee'},
+                {name:'Chance',      desc:'Any dice, sum all',            score:'Sum all',example:'1+2+3+4+5 = 15'},
+                {name:'Upper Bonus', desc:'Upper ≥ 63 → bonus',           score:'+35',    example:'Avg 3 per die'},
+              ].map((row,i)=>(
+                <div key={i} className="yz-chart-row">
+                  <span className="yz-chart-name">{row.name}</span>
+                  <span className="yz-chart-desc">{row.desc}</span>
+                  <span className="yz-chart-score">{row.score}</span>
+                  <span className="yz-chart-ex">{row.example}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Status bar */}
       <div className="yz-bar">
         <span className="yz-round-pill">Round {round}/13</span>
@@ -319,6 +357,7 @@ export default function YahtzeeGame({
         </span>
         <div className="yz-bar-right">
           {[0,1,2].map(i=><span key={i} className={`yz-pip ${i<rollsLeft?'on':''}`}/>)}
+          <button className="yz-chart-btn" onClick={()=>setShowChart(s=>!s)} title="Scoring guide">📊</button>
         </div>
       </div>
 
@@ -346,20 +385,25 @@ export default function YahtzeeGame({
 
       {/* Side-by-side scorecards */}
       <div className="yz-scorecards-row">
-        {players.map((p, i) => (
-          <Scorecard key={p.id}
-            player={p}
-            scoreData={scores[p.id]}
-            isMe={p.id === playerId}
-            isActive={i === currentPlayerIndex}
-            dice={dice}
-            canScore={canScore && p.id === playerId}
-            onScore={handleScore}
-            hoverCat={hoverCat}
-            setHoverCat={setHoverCat}
-            scoreFlash={scoreFlash}
-          />
-        ))}
+        {(() => {
+          const maxTotal = Math.max(...players.map(p => scores[p.id]?.total ?? 0));
+          return players.map((p, i) => (
+            <Scorecard key={p.id}
+              player={p}
+              scoreData={scores[p.id]}
+              isMe={p.id === playerId}
+              isActive={i === currentPlayerIndex}
+              dice={dice}
+              canScore={canScore && p.id === playerId}
+              onScore={handleScore}
+              hoverCat={hoverCat}
+              setHoverCat={setHoverCat}
+              scoreFlash={scoreFlash}
+              isLeader={(scores[p.id]?.total ?? 0) === maxTotal && maxTotal > 0}
+              playerColor={p.color || null}
+            />
+          ));
+        })()}
       </div>
 
       {scoreFlash && (

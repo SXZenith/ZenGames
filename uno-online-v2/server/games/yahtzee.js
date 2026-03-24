@@ -115,7 +115,7 @@ function getPublicState(room) {
     winner:             room.winner,
     settings:           room.settings,
     players:            room.players.map(p => ({
-      id: p.id, name: p.name, score: p.score || 0, isConnected: p.isConnected,
+      id: p.id, name: p.name, score: p.score || 0, isConnected: p.isConnected, color: p.color || null,
     })),
     currentPlayerIndex: room.currentPlayerIndex,
     rollsLeft:          room.rollsLeft,

@@ -543,3 +543,56 @@
   width: 100%;
   animation: pop-in 0.3s cubic-bezier(0.34,1.56,0.64,1);
 }
+
+/* ═══ STACK ANIMATION ═══ */
+@keyframes stack-slam {
+  0%   { transform: translate(-50%,-50%) scale(0.3) rotate(-15deg); opacity:0; }
+  25%  { transform: translate(-50%,-50%) scale(1.3) rotate(5deg);   opacity:1; }
+  50%  { transform: translate(-50%,-50%) scale(1.0) rotate(-3deg);  opacity:1; }
+  75%  { transform: translate(-50%,-50%) scale(1.1) rotate(2deg);   opacity:1; }
+  88%  { transform: translate(-50%,-50%) scale(1.0) rotate(0);      opacity:1; }
+  100% { transform: translate(-50%,-50%) scale(1.2) rotate(0);      opacity:0; }
+}
+@keyframes stack-bg-flash {
+  0%,100% { background: rgba(0,0,0,0); }
+  20%     { background: rgba(255,50,50,0.18); }
+  50%     { background: rgba(255,50,50,0.08); }
+}
+.stack-anim-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 700;
+  animation: stack-bg-flash 2.2s ease forwards;
+}
+.stack-anim-card {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 9rem;
+  line-height: 1;
+  color: #ff3b52;
+  text-shadow:
+    0 0 40px rgba(255,59,82,0.9),
+    0 0 80px rgba(255,59,82,0.5),
+    0 4px 20px rgba(0,0,0,0.8);
+  animation: stack-slam 2.2s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+}
+.stack-anim-total {
+  position: absolute;
+  top: calc(50% + 80px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.6rem;
+  letter-spacing: 3px;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(255,59,82,0.8);
+  animation: stack-slam 2.2s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  white-space: nowrap;
+}

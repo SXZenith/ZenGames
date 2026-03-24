@@ -8,8 +8,9 @@ const yahtzee    = require('./yahtzee');
 const hangman    = require('./hangman');
 const battleship = require('./battleship');
 const bounce     = require('./bounce');
+const tetris     = require('./tetris');
 
-const GAMES = { uno, connect4, checkers, yahtzee, hangman, battleship, bounce };
+const GAMES = { uno, connect4, checkers, yahtzee, hangman, battleship, bounce, tetris };
 
 function getGame(type) {
   const game = GAMES[type];

@@ -60,29 +60,14 @@ export default function HangmanGame({
   gameState, playerId, roomCode, roomLink,
   onStartGame, onRematch, onReturnToLobby, onChangeGame, onGameAction, error,
 }) {
+  // ── ALL HOOKS BEFORE EARLY RETURNS ──
   const [prevWrong, setPrevWrong] = useState(0);
   const [shake, setShake]         = useState(false);
-  const augmented = { ...gameState, minPlayers: 2, maxPlayers: 4 };
 
-  if (gameState.state === 'waiting')
-    return <WaitingRoom gameState={augmented} playerId={playerId}
-      roomCode={roomCode} roomLink={roomLink}
-      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error}/>;
-  if (gameState.state === 'finished')
-    return <GameOver gameState={gameState} playerId={playerId}
-      onRematch={onRematch} onReturnToLobby={onReturnToLobby}/>;
+  const wrongCount = gameState.wrongGuesses?.length ?? 0;
+  const solved     = gameState.solved ?? false;
+  const failed     = gameState.failed ?? false;
 
-  const {
-    maskedWord, category, wordLength, guessed, wrongGuesses, wrongCount,
-    maxWrong, solved, failed, revealedWord, currentGuesserIndex, round,
-    wordHistory, players, settings,
-  } = gameState;
-
-  const curPlayer = players[currentGuesserIndex];
-  const isMyTurn  = curPlayer?.id === playerId;
-  const me        = players.find(p => p.id === playerId);
-
-  // Sound effects on state change
   useEffect(() => {
     if (wrongCount > prevWrong) {
       if (failed) soundFail(); else soundMiss();
@@ -94,6 +79,26 @@ export default function HangmanGame({
   useEffect(() => {
     if (solved) soundSolve();
   }, [solved]);
+
+  // ── EARLY RETURNS AFTER HOOKS ──
+  const augmented = { ...gameState, minPlayers: 2, maxPlayers: 4 };
+  if (gameState.state === 'waiting')
+    return <WaitingRoom gameState={augmented} playerId={playerId}
+      roomCode={roomCode} roomLink={roomLink}
+      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error}/>;
+  if (gameState.state === 'finished')
+    return <GameOver gameState={gameState} playerId={playerId}
+      onRematch={onRematch} onReturnToLobby={onReturnToLobby}/>;
+
+  const {
+    maskedWord, category, wordLength, guessed, wrongGuesses,
+    maxWrong, revealedWord, currentGuesserIndex, round,
+    wordHistory, players, settings,
+  } = gameState;
+
+  const curPlayer = players[currentGuesserIndex];
+  const isMyTurn  = curPlayer?.id === playerId;
+  const me        = players.find(p => p.id === playerId);
 
   function handleGuess(letter) {
     if (!isMyTurn || solved || failed || guessed.includes(letter)) return;

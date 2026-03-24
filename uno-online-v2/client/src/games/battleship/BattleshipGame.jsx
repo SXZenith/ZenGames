@@ -71,27 +71,15 @@ export default function BattleshipGame({
   gameState, playerId, roomCode, roomLink,
   onStartGame, onRematch, onReturnToLobby, onChangeGame, onGameAction, error,
 }) {
+  // ── ALL HOOKS MUST BE BEFORE ANY EARLY RETURNS ──
   const [lastShot, setLastShot] = useState(null);
   const prevShotsRef = useRef([]);
-  const augmented = { ...gameState, minPlayers: 2, maxPlayers: 2 };
-
-  if (gameState.state === 'waiting')
-    return <WaitingRoom gameState={augmented} playerId={playerId}
-      roomCode={roomCode} roomLink={roomLink}
-      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error}/>;
-  if (gameState.state === 'finished')
-    return <GameOver gameState={gameState} playerId={playerId}
-      onRematch={onRematch} onReturnToLobby={onReturnToLobby}/>;
 
   const { size, publicBoards, currentPlayerIndex, players, settings } = gameState;
-  const curPlayer = players[currentPlayerIndex];
-  const isMyTurn  = curPlayer?.id === playerId;
-  const myData    = publicBoards?.[playerId] || {};
-  const opp       = players.find(p => p.id !== playerId);
+  const myData   = publicBoards?.[playerId] || {};
+  const myShots  = myData.myShots || [];
 
-  // detect new shots for sound
   useEffect(() => {
-    const myShots = myData.myShots || [];
     if (myShots.length > prevShotsRef.current.length) {
       const newest = myShots[myShots.length - 1];
       if (newest) {
@@ -101,16 +89,28 @@ export default function BattleshipGame({
       }
     }
     prevShotsRef.current = myShots;
-  }, [myData.myShots?.length]);
+  }, [myShots.length]);
+
+  // ── Early returns AFTER hooks ──
+  const augmented = { ...gameState, minPlayers: 2, maxPlayers: 2 };
+  if (gameState.state === 'waiting')
+    return <WaitingRoom gameState={augmented} playerId={playerId}
+      roomCode={roomCode} roomLink={roomLink}
+      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error}/>;
+  if (gameState.state === 'finished')
+    return <GameOver gameState={gameState} playerId={playerId}
+      onRematch={onRematch} onReturnToLobby={onReturnToLobby}/>;
+
+  const curPlayer = players[currentPlayerIndex];
+  const isMyTurn  = curPlayer?.id === playerId;
+  const opp       = players.find(p => p.id !== playerId);
+  const myShips   = myData.myShips  || [];
+  const oppSunk   = myData.oppShips || [];
 
   function handleShoot(row, col) {
     if (!isMyTurn) return;
     onGameAction('shoot', { row, col });
   }
-
-  // Ship status panel
-  const myShips  = myData.myShips  || [];
-  const oppSunk  = myData.oppShips || [];
 
   return (
     <div className="bs-game">
@@ -127,7 +127,6 @@ export default function BattleshipGame({
       </div>
 
       <div className="bs-body">
-        {/* My board */}
         <div className="bs-board-section">
           <div className="bs-board-label">Your Fleet</div>
           <Grid size={size} shots={myData.oppShots||[]} myGrid={myData.myGrid}
@@ -144,10 +143,8 @@ export default function BattleshipGame({
           </div>
         </div>
 
-        {/* Divider */}
         <div className="bs-divider">VS</div>
 
-        {/* Opponent's board */}
         <div className="bs-board-section">
           <div className="bs-board-label">{opp?.name}'s Waters</div>
           <Grid size={size} shots={myData.myShots||[]} myGrid={null}
