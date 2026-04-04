@@ -33,7 +33,7 @@ export default function Game({
   gameState, playerId, roomCode, roomLink,
   onStartGame, onPlayCard, onDrawCard, onPassTurn, onRematch, onReturnToLobby,
   onCallUno, onCatchUno, onUpdateSettings, onSendReaction, onSendChat,
-  onChangeGame, onChangeColor,
+  onChangeGame,
   error,
 }) {
   const [selectedCard,    setSelectedCard]    = useState(null);
@@ -42,28 +42,18 @@ export default function Game({
   const [timerLeft,       setTimerLeft]       = useState(null);
   const [deckShake,       setDeckShake]       = useState(false);
   const [unoTimer,        setUnoTimer]        = useState(null);
-  const [turnFlash,       setTurnFlash]       = useState(false);
   const [toastMsg,        setToastMsg]        = useState('');
-  const [stackAnim,       setStackAnim]       = useState(null); // {type, count}
+  const [actionMsg,       setActionMsg]       = useState(null); // {text, color}
+  const [showWinner,      setShowWinner]      = useState(false);
+  const [showScoreboard,  setShowScoreboard]  = useState(false);
 
-  const toastRef       = useRef(null);
-  const prevPendingRef  = useRef(0);
-  const timerRef       = useRef(null);
-  const unoTimerRef    = useRef(null);
-  const prevTurnRef    = useRef(null);
-  const prevLastAction = useRef(null);
-  const prevUnoVuln    = useRef(null);
-
-  // Stack animation: detect when pendingDraw increases dramatically
-  useEffect(() => {
-    const pending = gameState.pendingDraw || 0;
-    const prev    = prevPendingRef.current;
-    if (pending > prev && pending >= 4) {
-      setStackAnim({ type: gameState.pendingDrawType, count: pending });
-      setTimeout(() => setStackAnim(null), 2200);
-    }
-    prevPendingRef.current = pending;
-  }, [gameState.pendingDraw]);
+  const toastRef        = useRef(null);
+  const prevFinishedRef = useRef(false);
+  const timerRef        = useRef(null);
+  const unoTimerRef     = useRef(null);
+  const prevTurnRef     = useRef(null);
+  const prevLastAction  = useRef(null);
+  const prevUnoVuln     = useRef(null);
 
   // Auto-dismiss error toast after 3s
   useEffect(() => {
@@ -92,33 +82,48 @@ export default function Game({
     (!isMyTurn && myHandSize === 1)          // just played down to 1, forgot to call
   );
 
-  // ── Sounds ────────────────────────────────────────────────────────────────
+  // ── Turn sound (no flash) ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (isMyTurn && prevTurnRef.current === false) soundYourTurn();
+    prevTurnRef.current = isMyTurn;
+  }, [isMyTurn]);
+
+  // ── Sounds + action message ──────────────────────────────────────────────
   useEffect(() => {
     if (!gameState.lastAction || gameState.lastAction === prevLastAction.current) return;
     prevLastAction.current = gameState.lastAction;
-    const { type, card } = gameState.lastAction;
+    const { type, card, player } = gameState.lastAction;
+    const C = { red:'#ff3b52', yellow:'#ffd93d', green:'#06d6a0', blue:'#4cc9f0', wild:'#c840ff' };
     if (type === 'play') {
-      if (card?.color === 'wild')                                    soundWild();
-      else if (card?.value === 'draw2')                              soundDraw2();
-      else if (card?.value === 'skip' || card?.value === 'reverse')  soundSkip();
-      else                                                           soundCardPlace();
+      const col = C[card?.color] || '#fff';
+      if (card?.value === 'skip') {
+        soundSkip();
+        setActionMsg({ text: [player, ' played a ', 'Skip!',    col] });
+      } else if (card?.value === 'reverse') {
+        soundSkip();
+        setActionMsg({ text: [player, ' played a ', 'Reverse!', col] });
+      } else if (card?.value === 'draw2') {
+        soundDraw2();
+        setActionMsg({ text: [player, ' played a ', '+2!',      col] });
+      } else if (card?.value === 'wild4') {
+        soundWild();
+        setActionMsg({ text: [player, ' played a ', '+4 Wild!', col] });
+      } else if (card?.color === 'wild') {
+        soundWild();
+        setActionMsg({ text: [player, ' played a ', 'Wild!',    col] });
+      } else {
+        soundCardPlace();
+        setActionMsg({ text: [player, ' played a card', '', col] });
+      }
     } else if (type === 'draw') {
       soundCardDraw();
       setDeckShake(true); setTimeout(() => setDeckShake(false), 500);
+      setActionMsg({ text: [player, ` drew ${gameState.lastAction.count} card${gameState.lastAction.count!==1?'s':''}`, '', '#aaa'] });
     } else if (type === 'uno-catch') {
       soundCatch();
+      setActionMsg({ text: [player, ' was caught! ', '+4 cards 🎯', '#ff3b52'] });
     }
   }, [gameState.lastAction]);
-
-  // ── Turn flash ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (isMyTurn && prevTurnRef.current === false) {
-      soundYourTurn();
-      setTurnFlash(true);
-      setTimeout(() => setTurnFlash(false), 1800);
-    }
-    prevTurnRef.current = isMyTurn;
-  }, [isMyTurn]);
 
   // ── Pick timer ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -150,6 +155,32 @@ export default function Game({
     prevUnoVuln.current = vuln;
   }, [gameState.unoVulnerable]);
 
+  // ── Win delay: show winner popup for 5s before scoreboard ─────────────────
+  useEffect(() => {
+    if (gameState.state === 'finished' && !prevFinishedRef.current) {
+      prevFinishedRef.current = true;
+      setShowWinner(true);
+      setShowScoreboard(false);
+      setTimeout(() => {
+        setShowWinner(false);
+        setShowScoreboard(true);
+      }, 3000);
+    }
+    if (gameState.state !== 'finished') {
+      prevFinishedRef.current = false;
+      setShowWinner(false);
+      setShowScoreboard(false);
+    }
+  }, [gameState.state]);
+
+  // ── Keep-alive ping to prevent Render from sleeping ─────────────────────
+  useEffect(() => {
+    const ping = setInterval(() => {
+      fetch('https://zengames.onrender.com/health').catch(() => {});
+    }, 30000);
+    return () => clearInterval(ping);
+  }, []);
+
   const copyCode = useCallback(() => navigator.clipboard.writeText(roomCode).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }), [roomCode]);
 
   // ── Card click ────────────────────────────────────────────────────────────
@@ -170,9 +201,9 @@ export default function Game({
   // WAITING ROOM
   // ════════════════════════════════════════════════════════════════════════
   if (gameState.state === 'waiting') {
-    return <WaitingRoom gameState={{...gameState, maxPlayers:4}}
+    return <WaitingRoom gameState={{...gameState, maxPlayers:4, settings: gameState.settings || {}}}
       playerId={playerId} roomCode={roomCode} roomLink={roomLink}
-      onStartGame={onStartGame} onChangeGame={onChangeGame} onChangeColor={onChangeColor} error={error} />;
+      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error} />;
   }
 
   // ════════════════════════════════════════════════════════════════════════
@@ -182,6 +213,21 @@ export default function Game({
     const amWinner   = gameState.winner === me?.name;
     const scoreToWin = settings.scoreToWin || 500;
     const sorted = [...gameState.players].sort((a,b) => (b.totalScore||0) - (a.totalScore||0));
+    const winner = gameState.players.find(p => p.name === gameState.winner);
+    const winnerPts = winner?.roundPoints ?? 0;
+
+    // Show winner splash for 5s, then scoreboard
+    if (showWinner && !showScoreboard) {
+      return (
+        <div className="win-splash">
+          <div className="win-splash-emoji">{amWinner ? '🎉' : '😢'}</div>
+          <div className="win-splash-name">{amWinner ? 'YOU WON!' : `${gameState.winner} Won!`}</div>
+          <div className="win-splash-score">+{winnerPts} points this round</div>
+          <div className="win-splash-sub">Scoreboard in a moment…</div>
+          <div className="win-splash-bar"><div className="win-splash-fill" style={{animationDuration:"3s"}} /></div>
+        </div>
+      );
+    }
 
     return (
       <div className="game-over">
@@ -283,23 +329,7 @@ export default function Game({
     <div className="game">
       {pendingWildCard && <ColorPicker onChoose={handleColorChosen} />}
 
-      {turnFlash && !stackAnim && (
-        <div className="turn-flash-overlay">
-          <div className="turn-flash-text">YOUR TURN</div>
-        </div>
-      )}
 
-      {/* Stack animation — suppresses YOUR TURN flash */}
-      {stackAnim && (
-        <div className="stack-anim-overlay">
-          <div className="stack-anim-card">
-            {stackAnim.type === 'draw2' ? '+2' : '+4'}
-          </div>
-          <div className="stack-anim-total">
-            {stackAnim.count} CARDS INCOMING! 💀
-          </div>
-        </div>
-      )}
 
       {/* ── Opponents ── */}
       <div className="opponents-row">
@@ -365,10 +395,14 @@ export default function Game({
               {gameState.pendingDrawType==='draw2'?`+2 Stack (${gameState.pendingDraw})`:`+4 Stack (${gameState.pendingDraw})`}
             </div>
           )}
-          <div className="color-indicator" style={{
-            background: COLOR_NAMES[currentColor] ?? '#888',
-            boxShadow:  `0 0 12px 4px ${COLOR_NAMES[currentColor]??'#888'}55`,
-          }} />
+          <div className="color-pill" style={{
+            background: `${COLOR_NAMES[currentColor] ?? '#888'}22`,
+            border: `2px solid ${COLOR_NAMES[currentColor] ?? '#888'}`,
+            boxShadow: `0 0 16px 4px ${COLOR_NAMES[currentColor] ?? '#888'}55`,
+          }}>
+            <div className="color-pill-dot" style={{ background: COLOR_NAMES[currentColor] ?? '#888' }} />
+            <span className="color-pill-name">{currentColor}</span>
+          </div>
         </div>
 
         <div className="play-area">
@@ -385,26 +419,51 @@ export default function Game({
           <div className="discard-area">
             {topCard && <UnoCard card={topCard} disabled />}
           </div>
+
         </div>
 
-        <div className="last-action">
-          {gameState.lastAction && (
-            gameState.lastAction.type==='draw'
-              ? `${gameState.lastAction.player} drew ${gameState.lastAction.count} card${gameState.lastAction.count!==1?'s':''}`
-              : gameState.lastAction.type==='uno-catch'
-                ? `🎯 ${gameState.lastAction.player} was caught! +4 cards`
-                : `${gameState.lastAction.player} played a card`
-          )}
+        <div className="action-feed-area">
+          <div className="action-msg">
+            {actionMsg ? (
+              <span>
+                <span className="am-player">{actionMsg.text[0]}</span>
+                <span className="am-plain">{actionMsg.text[1]}</span>
+                {actionMsg.text[2] && (
+                  <span className="am-special" style={{color: actionMsg.text[3]}}>{actionMsg.text[2]}</span>
+                )}
+              </span>
+            ) : (
+              <span className="am-idle">—</span>
+            )}
+          </div>
+          <div className="uno-status-row">
+            {gameState.players
+              .filter(p => p.unoCalled && (p.hand?.length === 1 || p.handSize === 1))
+              .map(p => (
+                <span key={p.id} className={`uno-status-pill ${p.id === playerId ? 'mine' : ''}`}>
+                  🃏 {p.id === playerId ? 'You have' : `${p.name} has`} UNO!
+                </span>
+              ))}
+          </div>
         </div>
       </div>
 
       {/* ── My hand: flat scrollable row ── */}
       <div className="my-hand-area">
         <div className="hand-label">
-          Your hand <span className="hand-count">({myHandSize})</span>
+          <div className="hand-stats">
+            <span className="hand-stat">Cards <span className="hand-stat-val">({myHandSize})</span></span>
+            <span className="hand-stat-div">|</span>
+            <span className="hand-stat">Score <span className="hand-stat-val score-stat">{hand.reduce((s,c) => {
+              const n = parseInt(c.value); if (!isNaN(n)) return s+n;
+              if (c.value==='draw2'||c.value==='skip'||c.value==='reverse') return s+20;
+              if (c.color==='wild') return s+50;
+              return s;
+            }, 0)}</span></span>
+          </div>
           {iAmVulnerable && <span className="uno-warn">⚠ Call UNO!</span>}
-          {drawingStreak && playableSet.size > 0 && <span className="drawing-hint">▲ You drew a playable card — play it!</span>}
-          {drawingStreak && playableSet.size === 0 && <span className="drawing-hint">Keep drawing until you get a playable card…</span>}
+          {drawingStreak && playableSet.size > 0 && <span className="drawing-hint">▲ Play it!</span>}
+          {drawingStreak && playableSet.size === 0 && <span className="drawing-hint">Keep drawing…</span>}
         </div>
 
         <div className="hand-fan-container">

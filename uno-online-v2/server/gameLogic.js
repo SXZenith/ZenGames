@@ -72,7 +72,8 @@ function dealCards(game) {
   }
 
   // Apply starting card effect (real UNO rules)
-  // currentPlayerIndex starts at 0 already
+  // Randomize who goes first
+  game.currentPlayerIndex = Math.floor(Math.random() * game.players.length);
   if (topCard.value === 'skip') {
     advanceTurn(game); // skip player 0, player 1 goes first
     advanceTurn(game);

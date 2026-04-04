@@ -406,7 +406,7 @@ export default function YahtzeeGame({
         </span>
         <div className="yz-bar-right">
           {[0,1,2].map(i=><span key={i} className={`yz-pip ${i<rollsLeft?'on':''}`}/>)}
-          <button className="yz-chart-btn" onClick={()=>setShowChart(s=>!s)} title="Scoring guide">📊</button>
+          <button className="yz-chart-btn" onClick={()=>setShowChart(s=>!s)} title="Scoring guide">📊 Scoring Guide</button>
         </div>
       </div>
 

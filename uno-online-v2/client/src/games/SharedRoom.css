@@ -188,3 +188,44 @@
   font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; color: #0f1117;
   margin: 0 auto 8px; box-shadow: 0 4px 16px rgba(255,59,82,.35);
 }
+
+
+/* ── GamePicker dropdown wrapper ── */
+.gps-wrapper { display: flex; flex-direction: column; gap: 6px; }
+.gps-section-label {
+  font-size: 0.68rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 1.2px;
+  color: var(--text-muted); padding: 4px 2px 0;
+}
+.gps-readonly-label {
+  font-size: 0.65rem; color: var(--text-muted); font-style: italic;
+}
+
+/* ── Color picker ── */
+.wr-color-section {
+  background: var(--surface2);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.wr-color-label {
+  font-size: 0.68rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 1px;
+  color: var(--text-muted); margin-bottom: 8px;
+}
+.wr-color-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.wr-color-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: none; border: 2px solid transparent;
+  cursor: pointer; padding: 2px;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.wr-color-btn:hover { transform: scale(1.15); }
+.wr-color-btn.selected {
+  border-color: white; transform: scale(1.2);
+  box-shadow: 0 0 10px var(--c);
+}
+.wr-color-swatch {
+  width: 100%; height: 100%; border-radius: 50%;
+  background: var(--c); opacity: 0.75;
+}
+.wr-color-btn.selected .wr-color-swatch { opacity: 1; }

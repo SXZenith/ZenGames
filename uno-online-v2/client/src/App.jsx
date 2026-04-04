@@ -4,7 +4,7 @@ import Lobby        from './components/Lobby';
 import Game         from './components/Game';
 import Connect4Game  from './games/connect4/Connect4Game';
 import CheckersGame  from './games/checkers/CheckersGame';
-import YahtzeeGame   from './games/yahtzee/YahtzeeGame';
+import YahtzeeGame    from './games/yahtzee/YahtzeeGame';
 import HangmanGame    from './games/hangman/HangmanGame';
 import BattleshipGame from './games/battleship/BattleshipGame';
 import BounceGame     from './games/bounce/BounceGame';
@@ -14,7 +14,7 @@ import './App.css';
 import './AppHUD.css';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
-const REACTIONS  = ['🔥','😂','😤','🎉','💀','👍'];
+const REACTIONS  = ['🔥','😂','😤','🎉','💀','👍','💩','😭','🔪','🫣','🩷'];
 const CHAT_HIDE_MS = 8000;
 
 export default function App() {
@@ -95,7 +95,6 @@ export default function App() {
   const rematch        = useCallback(() => emit('rematch'), []);
   const returnToLobby  = useCallback(() => emit('returnToLobby'), []);
   const changeGame     = useCallback((gameType, settings) => emit('changeGame', { gameType, settings }), []);
-  const changeColor    = useCallback((color) => emit('setPlayerColor', { color }), []);
   const updateSettings = useCallback((s) => emit('updateSettings', s), []);
   const gameAction     = useCallback((action, payload = {}) => emit('gameAction', { action, payload }), []);
   const sendReaction   = useCallback((emoji) => emit('sendReaction', { emoji }), []);
@@ -137,7 +136,6 @@ export default function App() {
     onStartGame: startGame, onRematch: rematch,
     onReturnToLobby: returnToLobby,
     onChangeGame: changeGame,
-    onChangeColor: changeColor,
     onUpdateSettings: updateSettings,
     onSendReaction: sendReaction,
     onReaction: reactionBridgeRef.current,
@@ -214,12 +212,8 @@ export default function App() {
                 </div>
               )}
             </div>
-            <button className="hud-btn hud-exit-btn" title="Exit to Lobby"
-              onClick={() => {
-                if (window.confirm('Exit game? All players will be returned to the lobby.')) {
-                  returnToLobby();
-                }
-              }}>🚪</button>
+            <button className="hud-btn" title="Exit to Lobby"
+              onClick={() => { if (window.confirm('Exit game? All players will return to the lobby.')) { returnToLobby(); } }}>🚪</button>
           </div>
 
           {/* HUD top-left: chat */}

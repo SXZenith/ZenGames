@@ -170,9 +170,27 @@
   background:rgba(255,59,82,.2); color:var(--red);
   font-weight:800; font-size:.82rem; padding:3px 12px; border-radius:50px; border:1px solid rgba(255,59,82,.3);
 }
-.color-indicator {
-  width:22px; height:22px; border-radius:50%;
-  border:2px solid rgba(255,255,255,.2); flex-shrink:0; transition:background .3s,box-shadow .3s;
+.color-indicator { display:none; } /* replaced by color-pill */
+.color-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 8px;
+  border-radius: 50px;
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+.color-pill-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.color-pill-name {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: white;
 }
 .timer-badge {
   background:var(--surface2); color:var(--text);
@@ -186,8 +204,8 @@
 }
 @keyframes timer-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
 
-/* Play area: deck + discard */
-.play-area { display:flex; align-items:center; gap:48px; }
+/* Play area: deck | discard | notifications */
+.play-area { display:flex; align-items:center; gap:32px; justify-content:center; }
 .deck-area  { display:flex; flex-direction:column; align-items:center; gap:8px; }
 .deck-count { font-size:.8rem; color:var(--text-muted); font-weight:700; }
 .draw-btn {
@@ -550,58 +568,7 @@
   animation: pop-in 0.3s cubic-bezier(0.34,1.56,0.64,1);
 }
 
-/* ═══ STACK ANIMATION ═══ */
-@keyframes stack-slam {
-  0%   { transform: translate(-50%,-50%) scale(0.3) rotate(-15deg); opacity:0; }
-  25%  { transform: translate(-50%,-50%) scale(1.3) rotate(5deg);   opacity:1; }
-  50%  { transform: translate(-50%,-50%) scale(1.0) rotate(-3deg);  opacity:1; }
-  75%  { transform: translate(-50%,-50%) scale(1.1) rotate(2deg);   opacity:1; }
-  88%  { transform: translate(-50%,-50%) scale(1.0) rotate(0);      opacity:1; }
-  100% { transform: translate(-50%,-50%) scale(1.2) rotate(0);      opacity:0; }
-}
-@keyframes stack-bg-flash {
-  0%,100% { background: rgba(0,0,0,0); }
-  20%     { background: rgba(255,50,50,0.18); }
-  50%     { background: rgba(255,50,50,0.08); }
-}
-.stack-anim-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 700;
-  animation: stack-bg-flash 2.2s ease forwards;
-}
-.stack-anim-card {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 9rem;
-  line-height: 1;
-  color: #ff3b52;
-  text-shadow:
-    0 0 40px rgba(255,59,82,0.9),
-    0 0 80px rgba(255,59,82,0.5),
-    0 4px 20px rgba(0,0,0,0.8);
-  animation: stack-slam 2.2s cubic-bezier(0.34,1.56,0.64,1) forwards;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-}
-.stack-anim-total {
-  position: absolute;
-  top: calc(50% + 80px);
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.6rem;
-  letter-spacing: 3px;
-  color: #fff;
-  text-shadow: 0 0 20px rgba(255,59,82,0.8);
-  animation: stack-slam 2.2s cubic-bezier(0.34,1.56,0.64,1) forwards;
-  white-space: nowrap;
-}
+
 
 /* ===== MOBILE FIXES ===== */
 @media (max-width: 480px) {
@@ -632,4 +599,166 @@ html, body {
   touch-action: pan-x pan-y;
   -ms-touch-action: pan-x pan-y;
   overscroll-behavior: none;
+}
+
+/* ── Hand stats ── */
+.hand-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hand-stat {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+.hand-stat-val {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+.score-stat {
+  color: #4cc9f0;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+.hand-stat-div {
+  color: var(--border);
+  font-size: 0.9rem;
+}
+
+
+
+/* ── Win splash (5s before scoreboard) ── */
+@keyframes win-bar {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+/* duration set inline to 3s */
+.win-splash {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--bg, #0f1117);
+  padding: 24px;
+  animation: fadeIn 0.4s ease;
+}
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.win-splash-emoji { font-size: 5rem; animation: pop-in 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+.win-splash-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3.5rem;
+  letter-spacing: 4px;
+  color: #fff;
+  text-shadow: 0 0 40px rgba(255,217,61,0.6);
+  text-align: center;
+}
+.win-splash-score {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #4cc9f0;
+}
+.win-splash-sub {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.win-splash-bar {
+  width: 240px;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.win-splash-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4cc9f0, #06d6a0);
+  border-radius: 2px;
+  animation: win-bar 3s linear forwards;
+}
+
+
+
+
+/* UNO notification: red tint */
+.uno-notif {
+  border-color: rgba(255,59,82,0.3);
+  background: rgba(255,59,82,0.08);
+}
+.uno-notif .sn-player {
+  font-size: 1.2rem;
+}
+
+/* Stack notification: red tint */
+.stack-notif {
+  border-color: rgba(255,59,82,0.3);
+  background: rgba(255,59,82,0.06);
+}
+
+@media (max-width: 480px) {
+  .side-notif { width: 90px; }
+  .sn-symbol  { font-size: 2rem; }
+  .sn-label   { font-size: 0.68rem; }
+}
+
+/* ═══ ACTION FEED ═══ */
+.action-feed-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 4px;
+  min-height: 52px;
+}
+.action-msg {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: center;
+  min-height: 24px;
+  letter-spacing: 0.2px;
+}
+.am-player {
+  font-weight: 800;
+  color: var(--text);
+}
+.am-plain {
+  color: var(--text-muted);
+}
+.am-special {
+  font-weight: 900;
+  font-size: 1.05rem;
+}
+.am-idle {
+  color: transparent;
+}
+.uno-status-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 22px;
+}
+.uno-status-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ff3b52;
+  background: rgba(255,59,82,0.1);
+  border: 1px solid rgba(255,59,82,0.3);
+  border-radius: 50px;
+  padding: 2px 10px;
+  animation: pill-pulse 2s ease-in-out infinite;
+}
+.uno-status-pill.mine {
+  background: rgba(255,59,82,0.18);
+  border-color: rgba(255,59,82,0.5);
+}
+@keyframes pill-pulse {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.65; }
 }

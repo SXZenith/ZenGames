@@ -3,12 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>ZenGames</title>
-    <script type="module" crossorigin src="/assets/index-5abcd4eb.js"></script>
-    <link rel="stylesheet" href="/assets/index-3ecb2e14.css">
+    <style>
+      /* Hard lock — no zoom, no scroll bounce */
+      html, body {
+        touch-action: pan-x pan-y;
+        overscroll-behavior: none;
+        -webkit-text-size-adjust: 100%;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+    </style>
+    <script>
+      // Block pinch-zoom via touch events (belt-and-suspenders)
+      document.addEventListener('touchmove', function(e) {
+        if (e.touches.length > 1) e.preventDefault();
+      }, { passive: false });
+      document.addEventListener('gesturestart', function(e) {
+        e.preventDefault();
+      }, { passive: false });
+      document.addEventListener('gesturechange', function(e) {
+        e.preventDefault();
+      }, { passive: false });
+    </script>
+    <script type="module" crossorigin src="/assets/index-241369b5.js"></script>
+    <link rel="stylesheet" href="/assets/index-ac71feaf.css">
   </head>
   <body>
     <div id="root"></div>

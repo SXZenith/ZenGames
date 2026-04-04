@@ -8,18 +8,22 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
   const [tab,      setTab]      = useState(autoJoinCode ? 'join' : 'create');
   const [name,     setName]     = useState('');
   const [code,     setCode]     = useState(autoJoinCode || '');
-  const [gameId,   setGameId]   = useState('uno');
-  const [settings, setSettings] = useState(() => defaultSettingsFor('uno'));
+  const [gameId,       setGameId]       = useState('uno');
+  const [settings,     setSettings]     = useState(() => defaultSettingsFor('uno'));
+  const [gameOpen,     setGameOpen]     = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (autoJoinCode) { setCode(autoJoinCode); setTab('join'); }
   }, [autoJoinCode]);
 
-  const selectedGame = GAME_LIST.find(g => g.id === gameId);
+  const selectedGame   = GAME_LIST.find(g => g.id === gameId);
+  const activeSettings = selectedGame?.settings.filter(opt => settings[opt.key] !== opt.default) ?? [];
 
   const selectGame = (g) => {
     setGameId(g.id);
     setSettings(defaultSettingsFor(g.id));
+    setGameOpen(false);
   };
 
   const updateSetting = (key, val) => setSettings(s => ({ ...s, [key]: val }));
@@ -57,59 +61,96 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
               onChange={e => setName(e.target.value)} maxLength={20} autoFocus />
 
             <label className="form-label" style={{marginTop:4}}>Game</label>
-            <div className="game-picker">
-              {GAME_LIST.map(g => (
-                <button key={g.id} type="button"
-                  className={`game-tile ${gameId===g.id?'selected':''}`}
-                  onClick={() => selectGame(g)}>
-                  <span className="game-tile-emoji">{g.emoji}</span>
-                  <span className="game-tile-name">{g.name}</span>
-                  <span className="game-tile-players">{g.players}p</span>
-                </button>
-              ))}
-            </div>
 
-            <div className="game-desc">{selectedGame?.description}</div>
-
-            <div className="game-settings">
-              {selectedGame?.settings.map(opt => (
-                <div key={opt.key} className="gs-row">
-                  <div className="gs-label">
-                    <span className="gs-name">{opt.label}</span>
-                    {opt.desc && <span className="gs-desc">{opt.desc}</span>}
+            {/* Game dropdown */}
+            <div className="lob-dropdown">
+              <button type="button" className="lob-drop-trigger"
+                onClick={() => { setGameOpen(o=>!o); setSettingsOpen(false); }}>
+                <span className="lob-drop-selected">
+                  <span className="lob-drop-emoji">{selectedGame?.emoji}</span>
+                  <span className="lob-drop-name">{selectedGame?.name}</span>
+                  <span className="lob-drop-players">{selectedGame?.players}p</span>
+                </span>
+                <span className={`lob-drop-arrow ${gameOpen?'open':''}`}>▾</span>
+              </button>
+              {gameOpen && (
+                <div className="lob-drop-panel">
+                  <div className="lob-game-grid">
+                    {GAME_LIST.map(g => (
+                      <button key={g.id} type="button"
+                        className={`lob-game-tile ${gameId===g.id?'selected':''}`}
+                        onClick={() => selectGame(g)}>
+                        <span className="lob-tile-emoji">{g.emoji}</span>
+                        <span className="lob-tile-name">{g.name}</span>
+                        <span className="lob-tile-players">{g.players}p</span>
+                      </button>
+                    ))}
                   </div>
-                  {opt.type === 'toggle' && (
-                    <button type="button"
-                      className={`gs-toggle ${settings[opt.key]?'on':'off'}`}
-                      onClick={() => updateSetting(opt.key, !settings[opt.key])}>
-                      {settings[opt.key]?'ON':'OFF'}
-                    </button>
-                  )}
-                  {opt.type === 'timer' && (
-                    <div className="gs-chips">
-                      {TIMER_OPTIONS.map(t => (
-                        <button key={t} type="button"
-                          className={`gs-chip ${settings[opt.key]===t?'active':''}`}
-                          onClick={() => updateSetting(opt.key, t)}>
-                          {t===0?'Off':`${t}s`}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {opt.type === 'chips' && (
-                    <div className="gs-chips">
-                      {opt.options.map(v => (
-                        <button key={v} type="button"
-                          className={`gs-chip ${settings[opt.key]===v?'active':''}`}
-                          onClick={() => updateSetting(opt.key, v)}>
-                          {v}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <p className="lob-game-desc">{selectedGame?.description}</p>
                 </div>
-              ))}
+              )}
             </div>
+
+            {/* Settings dropdown */}
+            {selectedGame?.settings?.length > 0 && (
+              <div className="lob-dropdown">
+                <button type="button" className="lob-drop-trigger settings-trigger"
+                  onClick={() => { setSettingsOpen(o=>!o); setGameOpen(false); }}>
+                  <span className="lob-drop-label">
+                    ⚙ Settings
+                    {activeSettings.length > 0 && (
+                      <span className="lob-settings-badge">{activeSettings.length} changed</span>
+                    )}
+                  </span>
+                  <span className={`lob-drop-arrow ${settingsOpen?'open':''}`}>▾</span>
+                </button>
+                {settingsOpen && (
+                  <div className="lob-drop-panel settings-panel">
+                    {selectedGame.settings.map(opt => (
+                      <div key={opt.key} className="lob-setting-row">
+                        <div className="lob-setting-info">
+                          <span className="lob-setting-name">{opt.label}</span>
+                          {opt.desc && <span className="lob-setting-desc">{opt.desc}</span>}
+                        </div>
+                        {opt.type === 'toggle' && (
+                          <button type="button"
+                            className={`lob-toggle ${settings[opt.key]?'on':'off'}`}
+                            onClick={() => updateSetting(opt.key, !settings[opt.key])}>
+                            {settings[opt.key]?'ON':'OFF'}
+                          </button>
+                        )}
+                        {(opt.type === 'timer' || opt.type === 'chips') && (
+                          <div className="lob-chips">
+                            {(opt.type==='timer' ? TIMER_OPTIONS : opt.options).map(v => (
+                              <button key={v} type="button"
+                                className={`lob-chip ${settings[opt.key]===v?'active':''}`}
+                                onClick={() => updateSetting(opt.key, v)}>
+                                {opt.type==='timer' ? (v===0?'Off':`${v}s`) : v}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Active settings summary */}
+            {activeSettings.length > 0 && (
+              <div className="lob-active-settings">
+                {activeSettings.map(opt => (
+                  <span key={opt.key} className="lob-active-pill">
+                    {opt.label}: <strong>{
+                      opt.type==='toggle' ? (settings[opt.key]?'ON':'OFF')
+                      : opt.type==='timer' ? (settings[opt.key]===0?'Off':`${settings[opt.key]}s`)
+                      : settings[opt.key]
+                    }</strong>
+                  </span>
+                ))}
+              </div>
+            )}
 
             <button className="btn-primary" type="submit" disabled={!name.trim() || !connected}>
               Create Room

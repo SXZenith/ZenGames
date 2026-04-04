@@ -9,18 +9,6 @@ import './SharedRoom.css';
 // ─────────────────────────────────────────────────────────────────────────────
 // GAME DEFINITIONS (single source of truth for the picker)
 // ─────────────────────────────────────────────────────────────────────────────
-// Player color options — faded to match dark theme
-export const PLAYER_COLORS = [
-  { key:'cyan',   hex:'#4cc9f0', label:'Cyan'   },
-  { key:'green',  hex:'#06d6a0', label:'Green'  },
-  { key:'yellow', hex:'#ffd93d', label:'Yellow' },
-  { key:'red',    hex:'#ff6b6b', label:'Red'    },
-  { key:'purple', hex:'#c77dff', label:'Purple' },
-  { key:'orange', hex:'#f4a261', label:'Orange' },
-  { key:'pink',   hex:'#ff9ec4', label:'Pink'   },
-  { key:'blue',   hex:'#4361ee', label:'Blue'   },
-];
-
 export const GAME_LIST = [
   {
     id: 'uno', name: 'UNO', emoji: '🃏',
@@ -32,7 +20,7 @@ export const GAME_LIST = [
       { key:'drawUntilPlayable', label:'Draw Until Playable', type:'toggle', default:false, desc:'Keep drawing until you get a playable card' },
       { key:'freeWild4',         label:'Free Wild +4',        type:'toggle', default:false, desc:'Play Wild Draw 4 any time' },
       { key:'pickTimer',         label:'Turn Timer',          type:'timer',  default:0 },
-      { key:'scoreToWin',         label:'Score to Win',         type:'chips',  default:500, options:[100,200,300,400,500], desc:'Points needed to win the match' },
+      { key:'scoreToWin',        label:'Score to Win',        type:'chips',  default:500, options:[100,200,300,400,500], desc:'Points needed to win the match' },
     ],
   },
   {
@@ -81,21 +69,21 @@ export const GAME_LIST = [
     ],
   },
   {
-    id: 'tetris', name: 'Chaos Tetris', emoji: '🧱',
-    description: 'Both players control the same Tetris board simultaneously. Pure chaos!',
-    players: '2–4', minPlayers: 2, maxPlayers: 4,
-    settings: [
-      { key:'startSpeed',   label:'Start Speed',   type:'chips',  default:800, options:[400,600,800,1000], desc:'Initial drop speed (ms)' },
-      { key:'garbageLines', label:'Garbage Lines',  type:'toggle', default:true, desc:'Line clears send garbage rows' },
-    ],
-  },
-  {
     id: 'bounce', name: 'Bounce', emoji: '🔵',
     description: 'Race to the top! Switch your color to pass through matching obstacles.',
     players: '2–4', minPlayers: 2, maxPlayers: 4,
     settings: [
       { key:'courseLength', label:'Course Length', type:'chips', default:60, options:[40,60,80], desc:'Number of obstacle rows' },
       { key:'speed',        label:'Speed',         type:'chips', default:2,  options:[1,2,3],    desc:'Ball speed multiplier' },
+    ],
+  },
+  {
+    id: 'tetris', name: 'Chaos Tetris', emoji: '🧱',
+    description: 'Both players control the same Tetris board simultaneously. Pure chaos!',
+    players: '2–4', minPlayers: 2, maxPlayers: 4,
+    settings: [
+      { key:'startSpeed',   label:'Start Speed',  type:'chips', default:800, options:[400,600,800,1000], desc:'Initial drop speed (ms)' },
+      { key:'garbageLines', label:'Garbage Lines', type:'toggle', default:true, desc:'Line clears send garbage rows' },
     ],
   },
 ];
@@ -289,15 +277,12 @@ export function useChat(onChatMessage, onSendChat) {
 // ─────────────────────────────────────────────────────────────────────────────
 export function WaitingRoom({
   gameState, playerId, roomCode, roomLink,
-  onStartGame, onChangeGame, onChangeColor,
+  onStartGame, onChangeGame,
   error,
 }) {
-  const [copied,       setCopied]       = useState(false);
-  const [pickingColor, setPickingColor] = useState(false);
-  const isHost     = gameState.players[0]?.id === playerId;
+  const [copied, setCopied] = useState(false);
+  const isHost = gameState.players[0]?.id === playerId;
   const minPlayers = gameState.minPlayers ?? 2;
-  const myPlayer   = gameState.players?.find(p => p.id === playerId);
-  const myColor    = myPlayer?.color || null;
 
   const copy = (text) => navigator.clipboard.writeText(text).then(() => {
     setCopied(true); setTimeout(() => setCopied(false), 2000);
