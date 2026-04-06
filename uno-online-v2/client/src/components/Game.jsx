@@ -96,21 +96,23 @@ export default function Game({
     const C = { red:'#ff3b52', yellow:'#ffd93d', green:'#06d6a0', blue:'#4cc9f0', wild:'#c840ff' };
     if (type === 'play') {
       const col = C[card?.color] || '#fff';
+      const { chosenColor } = gameState.lastAction;
+      const newCol = C[chosenColor] || '#fff';
       if (card?.value === 'skip') {
         soundSkip();
-        setActionMsg({ text: [player, ' played a ', 'Skip!',    col] });
+        setActionMsg({ text: [player, ' played a ', 'Skip!', col] });
       } else if (card?.value === 'reverse') {
         soundSkip();
         setActionMsg({ text: [player, ' played a ', 'Reverse!', col] });
       } else if (card?.value === 'draw2') {
         soundDraw2();
-        setActionMsg({ text: [player, ' played a ', '+2!',      col] });
+        setActionMsg({ text: [player, ' played a ', '+2!', col] });
       } else if (card?.value === 'wild4') {
         soundWild();
-        setActionMsg({ text: [player, ' played a ', '+4 Wild!', col] });
+        setActionMsg({ text: [player, ' played a ', '+4 Wild!', col], newColor: chosenColor, newColorHex: newCol });
       } else if (card?.color === 'wild') {
         soundWild();
-        setActionMsg({ text: [player, ' played a ', 'Wild!',    col] });
+        setActionMsg({ text: [player, ' played a ', 'Wild!', col], newColor: chosenColor, newColorHex: newCol });
       } else {
         soundCardPlace();
         setActionMsg({ text: [player, ' played a card', '', col] });
@@ -281,7 +283,9 @@ export default function Game({
           <div className="go-actions">
             {isHost ? (
               <>
-                <button className="btn-primary" onClick={onRematch}>Rematch →</button>
+                <button className="btn-primary" onClick={onRematch}>
+                  {gameState.matchWinner ? '🎮 New Game' : '▶ Continue'}
+                </button>
                 <button className="btn-exit" onClick={onReturnToLobby}>← Back to Lobby</button>
               </>
             ) : (
@@ -409,29 +413,43 @@ export default function Game({
           <div className="deck-area">
             <div className={deckShake?'deck-shake':''}><CardBack /></div>
             <div className="deck-count">{gameState.deckSize} left</div>
-            {isMyTurn && (
-              <button className="draw-btn" onClick={onDrawCard}>{drawLabel}</button>
-            )}
-            {isMyTurn && drawingStreak && gameState.pendingDraw===0 && gameState.deckSize===0 && (
-              <button className="pass-btn" onClick={onPassTurn}>Pass (deck empty)</button>
-            )}
+            {/* Fixed-height slot — always present, prevents layout shift */}
+            <div className="draw-btn-slot">
+              {isMyTurn && !drawingStreak && (
+                <button className="draw-btn" onClick={onDrawCard}>{drawLabel}</button>
+              )}
+              {isMyTurn && drawingStreak && gameState.pendingDraw===0 && gameState.deckSize===0 && (
+                <button className="pass-btn" onClick={onPassTurn}>Pass</button>
+              )}
+              {isMyTurn && drawingStreak && (gameState.pendingDraw > 0 || gameState.deckSize > 0) && (
+                <button className="draw-btn" onClick={onDrawCard}>{drawLabel}</button>
+              )}
+            </div>
           </div>
           <div className="discard-area">
             {topCard && <UnoCard card={topCard} disabled />}
           </div>
-
         </div>
 
         <div className="action-feed-area">
           <div className="action-msg">
             {actionMsg ? (
-              <span>
-                <span className="am-player">{actionMsg.text[0]}</span>
-                <span className="am-plain">{actionMsg.text[1]}</span>
-                {actionMsg.text[2] && (
-                  <span className="am-special" style={{color: actionMsg.text[3]}}>{actionMsg.text[2]}</span>
+              <div>
+                <div>
+                  <span className="am-player">{actionMsg.text[0]}</span>
+                  <span className="am-plain">{actionMsg.text[1]}</span>
+                  {actionMsg.text[2] && (
+                    <span className="am-special" style={{color: actionMsg.text[3]}}>{actionMsg.text[2]}</span>
+                  )}
+                </div>
+                {actionMsg.newColor && (
+                  <div className="am-color-line">
+                    Color changed to <span className="am-special" style={{color: actionMsg.newColorHex}}>
+                      {actionMsg.newColor.charAt(0).toUpperCase() + actionMsg.newColor.slice(1)}!
+                    </span>
+                  </div>
                 )}
-              </span>
+              </div>
             ) : (
               <span className="am-idle">—</span>
             )}
@@ -485,7 +503,6 @@ export default function Game({
           })}
         </div>
 
-        {selectedCard && isMyTurn && <div className="play-hint">Click the card again to play it</div>}
 
         {showUnoButton && (
           <button className="my-uno-btn" onClick={() => { onCallUno(); soundUno(); }}>

@@ -179,7 +179,8 @@ function playCard(game, playerId, cardId, chosenColor) {
     game.currentColor = card.color;
   }
 
-  game.lastAction = { type: 'play', player: player.name, card };
+  game.lastAction = { type: 'play', player: player.name, card,
+    chosenColor: card.color === 'wild' ? game.currentColor : undefined };
 
   // Win condition
   if (player.hand.length === 0) {

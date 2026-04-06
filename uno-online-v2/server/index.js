@@ -131,11 +131,16 @@ io.on('connection', (socket) => {
     const { rematch } = getGame(room.gameType);
 
     if (room.gameType === 'uno') {
-      // UNO rematch: full fresh game preserving scores
+      const isNewGame = !!room.matchWinner; // match was won — full reset
       const fresh = unoLogic.createGame(info.roomCode, room.settings);
       fresh.gameType = 'uno';
-      fresh.players  = room.players.map(p => ({ ...p, hand:[], unoCalled:false, roundPoints:0 })); // preserve totalScore for match
-      fresh.state    = 'playing';
+      fresh.players  = room.players.map(p => ({
+        ...p, hand:[], unoCalled:false, roundPoints:0,
+        // If match winner reached, reset totalScore and wins; else preserve
+        totalScore: isNewGame ? 0 : (p.totalScore || 0),
+        score:      isNewGame ? 0 : (p.score || 0),
+      }));
+      fresh.state = 'playing';
       rooms[info.roomCode] = fresh;
       unoLogic.dealCards(fresh);
     } else {

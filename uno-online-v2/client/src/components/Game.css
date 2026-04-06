@@ -208,6 +208,13 @@
 .play-area { display:flex; align-items:center; gap:32px; justify-content:center; }
 .deck-area  { display:flex; flex-direction:column; align-items:center; gap:8px; }
 .deck-count { font-size:.8rem; color:var(--text-muted); font-weight:700; }
+.draw-btn-slot {
+  height: 38px; /* always reserves space — no layout shift */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+}
 .draw-btn {
   background:linear-gradient(135deg,#4cc9f0,#06d6a0); color:#0f1117;
   border-radius:50px; padding:8px 20px; font-size:.88rem; font-weight:900;
@@ -274,7 +281,6 @@
 
 /* playable-dot removed */
 
-.play-hint { margin-top:8px; font-size:.78rem; color:var(--yellow); font-weight:700; text-align:center; }
 
 /* UNO button */
 .my-uno-btn {
