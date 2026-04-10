@@ -7,6 +7,7 @@ import {
 } from '../sounds';
 import './Game.css';
 import { WaitingRoom } from '../games/SharedRoom';
+import { getAvatar } from '../avatars';
 
 const COLOR_NAMES = { red:'#ff3b52', yellow:'#ffd93d', green:'#06d6a0', blue:'#4cc9f0' };
 
@@ -78,8 +79,9 @@ export default function Game({
 
   // UNO button: show at 1 OR 2 cards — can call after playing down to 1
   const showUnoButton = !iCalledUno && (
-    (isMyTurn && myHandSize === 2) ||       // your turn, about to play 2nd-to-last
-    (!isMyTurn && myHandSize === 1)          // just played down to 1, forgot to call
+    (isMyTurn && myHandSize === 2) ||  // your turn with 2 cards, about to play
+    (isMyTurn && myHandSize === 1) ||  // your turn with 1 card (played skip/reverse to get here)
+    (!isMyTurn && myHandSize === 1)    // not your turn, just played down to 1
   );
 
   // ── Turn sound (no flash) ─────────────────────────────────────────────────
@@ -157,16 +159,22 @@ export default function Game({
     prevUnoVuln.current = vuln;
   }, [gameState.unoVulnerable]);
 
-  // ── Win delay: show winner popup for 5s before scoreboard ─────────────────
+  // ── Win sequence: pause → splash → scoreboard ────────────────────────────
   useEffect(() => {
     if (gameState.state === 'finished' && !prevFinishedRef.current) {
       prevFinishedRef.current = true;
-      setShowWinner(true);
+      // Phase 1: stay on game board (2.5s)
+      setShowWinner(false);
       setShowScoreboard(false);
       setTimeout(() => {
-        setShowWinner(false);
-        setShowScoreboard(true);
-      }, 3000);
+        // Phase 2: show splash (3s)
+        setShowWinner(true);
+        setTimeout(() => {
+          // Phase 3: scoreboard
+          setShowWinner(false);
+          setShowScoreboard(true);
+        }, 3000);
+      }, 2500);
     }
     if (gameState.state !== 'finished') {
       prevFinishedRef.current = false;
@@ -209,27 +217,14 @@ export default function Game({
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // GAME OVER
+  // GAME OVER — only render scoreboard when showScoreboard is true
   // ════════════════════════════════════════════════════════════════════════
-  if (gameState.state === 'finished') {
+  if (gameState.state === 'finished' && showScoreboard) {
     const amWinner   = gameState.winner === me?.name;
     const scoreToWin = settings.scoreToWin || 500;
     const sorted = [...gameState.players].sort((a,b) => (b.totalScore||0) - (a.totalScore||0));
     const winner = gameState.players.find(p => p.name === gameState.winner);
     const winnerPts = winner?.roundPoints ?? 0;
-
-    // Show winner splash for 5s, then scoreboard
-    if (showWinner && !showScoreboard) {
-      return (
-        <div className="win-splash">
-          <div className="win-splash-emoji">{amWinner ? '🎉' : '😢'}</div>
-          <div className="win-splash-name">{amWinner ? 'YOU WON!' : `${gameState.winner} Won!`}</div>
-          <div className="win-splash-score">+{winnerPts} points this round</div>
-          <div className="win-splash-sub">Scoreboard in a moment…</div>
-          <div className="win-splash-bar"><div className="win-splash-fill" style={{animationDuration:"3s"}} /></div>
-        </div>
-      );
-    }
 
     return (
       <div className="game-over">
@@ -267,7 +262,7 @@ export default function Game({
                 <span className="go-score-name">{p.name}{p.id===playerId?' (you)':''}</span>
                 <div className="go-score-right">
                   <span className="go-pts">{p.totalScore||0} pts</span>
-                  <span className="go-wins-small">{p.score||0}W</span>
+                  <span className="go-wins-small">{p.score||0} {(p.score||0)===1?"Win":"Wins"}</span>
                 </div>
               </div>
             ))}
@@ -300,6 +295,22 @@ export default function Game({
     );
   }
 
+  // ── Win splash (floats over game board during pause→splash phase) ────────
+  const winSplashEl = showWinner ? (() => {
+    const amWinner = gameState.winner === me?.name;
+    const winner   = gameState.players.find(p => p.name === gameState.winner);
+    const winnerPts = winner?.roundPoints ?? 0;
+    return (
+      <div className="win-splash">
+        <div className="win-splash-emoji">{amWinner ? '🎉' : '😢'}</div>
+        <div className="win-splash-name">{amWinner ? 'YOU WON!' : `${gameState.winner} Won!`}</div>
+        <div className="win-splash-score">+{winnerPts} points this round</div>
+        <div className="win-splash-sub">Scoreboard loading…</div>
+        <div className="win-splash-bar"><div className="win-splash-fill" /></div>
+      </div>
+    );
+  })() : null;
+
   // ════════════════════════════════════════════════════════════════════════
   // IN GAME
   // ════════════════════════════════════════════════════════════════════════
@@ -325,6 +336,19 @@ export default function Game({
     });
   }
 
+  // Can only draw if:
+  // - pending stack: always show (player can draw penalty OR stack if they have a card)
+  // - normal mode: always can draw on your turn
+  // - drawUntilPlayable: only if no playable card yet (or mid-streak)
+  const hasPlayable = playableSet.size > 0;
+  const canDraw = isMyTurn && (
+    gameState.pendingDraw > 0
+      ? true                   // always allow drawing the stack penalty
+      : !settings.drawUntilPlayable
+        ? true                 // normal mode: always can draw
+        : !hasPlayable || drawingStreak // drawUntilPlayable: only if no playable card
+  );
+
   const drawLabel = gameState.pendingDraw > 0
     ? `Draw ${gameState.pendingDraw}`
     : drawingStreak ? 'Draw Again' : 'Draw';
@@ -345,7 +369,7 @@ export default function Game({
           return (
             <div key={p.id} className={`opponent-area ${isTheirTurn?'active-turn':''}`}>
               <div className="opp-info">
-                <div className="opp-avatar" style={{background:`hsl(${pi*90},60%,50%)`}}>{p.name[0]}</div>
+                <div className="opp-avatar"><img src={getAvatar(p.avatar).src} alt={p.name} /></div>
                 <div>
                   <div className="opp-name">{p.name}</div>
                   <div className="opp-count">{p.handSize} card{p.handSize!==1?'s':''}</div>
@@ -413,17 +437,13 @@ export default function Game({
           <div className="deck-area">
             <div className={deckShake?'deck-shake':''}><CardBack /></div>
             <div className="deck-count">{gameState.deckSize} left</div>
-            {/* Fixed-height slot — always present, prevents layout shift */}
+            {/* Fixed-height slot — always reserves space, never shifts layout */}
             <div className="draw-btn-slot">
-              {isMyTurn && !drawingStreak && (
-                <button className="draw-btn" onClick={onDrawCard}>{drawLabel}</button>
-              )}
-              {isMyTurn && drawingStreak && gameState.pendingDraw===0 && gameState.deckSize===0 && (
-                <button className="pass-btn" onClick={onPassTurn}>Pass</button>
-              )}
-              {isMyTurn && drawingStreak && (gameState.pendingDraw > 0 || gameState.deckSize > 0) && (
-                <button className="draw-btn" onClick={onDrawCard}>{drawLabel}</button>
-              )}
+              {isMyTurn && gameState.pendingDraw===0 && gameState.deckSize===0 && drawingStreak
+                ? <button className="pass-btn" onClick={onPassTurn}>Pass</button>
+                : canDraw
+                ? <button className="draw-btn" onClick={onDrawCard}>{drawLabel}</button>
+                : null}
             </div>
           </div>
           <div className="discard-area">
@@ -515,6 +535,7 @@ export default function Game({
       </div>
 
       {toastMsg && <div className="error-toast">⚠ {toastMsg}</div>}
+      {winSplashEl}
     </div>
   );
 }

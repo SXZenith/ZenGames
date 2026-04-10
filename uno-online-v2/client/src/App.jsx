@@ -14,7 +14,7 @@ import './App.css';
 import './AppHUD.css';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
-const REACTIONS  = ['🔥','😂','😤','🎉','💀','👍','💩','😭','🔪','🫣','🩷'];
+const REACTIONS  = ['🔥','😂','😤','🎉','💀','👍'];
 const CHAT_HIDE_MS = 8000;
 
 export default function App() {
@@ -188,14 +188,19 @@ export default function App() {
             <div className="mid-scoreboard" onClick={() => setShowScoreboard(false)}>
               <div className="mid-sb-card" onClick={e => e.stopPropagation()}>
                 <div className="mid-sb-title">🏆 Scores</div>
-                {[...gameState.players].sort((a,b) => b.score - a.score).map((p, i) => (
+                {[...gameState.players]
+                  .sort((a,b) => (b.totalScore||b.score||0) - (a.totalScore||a.score||0))
+                  .map((p, i) => (
                   <div key={p.id} className={`mid-sb-row ${p.id === playerId ? 'me' : ''}`}>
                     <span className="mid-sb-rank">#{i+1}</span>
                     <span className="mid-sb-name">{p.name}</span>
-                    <span className="mid-sb-score">{p.score}W</span>
+                    <div className="mid-sb-stats">
+                      <span className="mid-sb-pts">{p.totalScore||0} pts</span>
+                      <span className="mid-sb-wins">{p.score||0} {p.score===1?'Win':'Wins'}</span>
+                    </div>
                   </div>
                 ))}
-                <button className="btn-secondary small" style={{marginTop:12,width:'100%'}} onClick={() => setShowScoreboard(false)}>Close</button>
+                <button className="btn-secondary small" style={{marginTop:16,width:'100%'}} onClick={() => setShowScoreboard(false)}>Close</button>
               </div>
             </div>
           )}

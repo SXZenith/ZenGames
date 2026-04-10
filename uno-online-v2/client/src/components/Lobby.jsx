@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AVATARS, DEFAULT_AVATAR } from '../avatars';
 import { GAME_LIST, defaultSettingsFor } from '../games/SharedRoom';
 import './Lobby.css';
 
@@ -12,6 +13,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
   const [settings,     setSettings]     = useState(() => defaultSettingsFor('uno'));
   const [gameOpen,     setGameOpen]     = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [avatar,       setAvatar]       = useState(DEFAULT_AVATAR.id);
 
   useEffect(() => {
     if (autoJoinCode) { setCode(autoJoinCode); setTab('join'); }
@@ -30,12 +32,12 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
 
   const handleCreate = (e) => {
     e.preventDefault();
-    if (name.trim() && connected) onCreateRoom(name.trim(), gameId, settings);
+    if (name.trim() && connected) onCreateRoom(name.trim(), gameId, settings, avatar);
   };
 
   const handleJoin = (e) => {
     e.preventDefault();
-    if (name.trim() && code.trim().length === 6 && connected) onJoinRoom(code.trim(), name.trim());
+    if (name.trim() && code.trim().length === 6 && connected) onJoinRoom(code.trim(), name.trim(), avatar);
   };
 
   return (
@@ -59,6 +61,18 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
             <label className="form-label">Your Name</label>
             <input className="input-field" placeholder="Enter your name…" value={name}
               onChange={e => setName(e.target.value)} maxLength={20} autoFocus />
+
+            <label className="form-label" style={{marginTop:8}}>Your Avatar</label>
+            <div className="avatar-picker">
+              {AVATARS.map(av => (
+                <button key={av.id} type="button"
+                  className={`avatar-option ${avatar===av.id?'selected':''}`}
+                  onClick={() => setAvatar(av.id)}
+                  title={av.label}>
+                  <img src={av.src} alt={av.label} />
+                </button>
+              ))}
+            </div>
 
             <label className="form-label" style={{marginTop:4}}>Game</label>
 
@@ -161,6 +175,18 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
             <label className="form-label">Your Name</label>
             <input className="input-field" placeholder="Enter your name…" value={name}
               onChange={e => setName(e.target.value)} maxLength={20} autoFocus />
+            <label className="form-label" style={{marginTop:8}}>Your Avatar</label>
+            <div className="avatar-picker">
+              {AVATARS.map(av => (
+                <button key={av.id} type="button"
+                  className={`avatar-option ${avatar===av.id?'selected':''}`}
+                  onClick={() => setAvatar(av.id)}
+                  title={av.label}>
+                  <img src={av.src} alt={av.label} />
+                </button>
+              ))}
+            </div>
+
             <label className="form-label" style={{marginTop:8}}>Room Code</label>
             <input className="input-field code-input" placeholder="ABC123" value={code}
               onChange={e => setCode(e.target.value.toUpperCase())} maxLength={6} />

@@ -56,7 +56,7 @@ io.on('connection', (socket) => {
   });
 
   // ── Create Room ──────────────────────────────────────────────────────────
-  socket.on('createRoom', ({ playerName, gameType = 'uno', settings = {} }) => {
+  socket.on('createRoom', ({ playerName, gameType = 'uno', settings = {}, avatar = 'penguin' }) => {
     if (!playerName?.trim()) return socket.emit('error', { message: 'Name required' });
     let game;
     try { game = getGame(gameType); }
@@ -66,7 +66,7 @@ io.on('connection', (socket) => {
     do { roomCode = generateRoomCode(); } while (rooms[roomCode]);
     const room     = game.createRoom(roomCode, settings);
     const playerId = uuidv4();
-    room.players.push({ id:playerId, socketId:socket.id, name:playerName.trim(), isConnected:true, score:0, hand:[], unoCalled:false });
+    room.players.push({ id:playerId, socketId:socket.id, name:playerName.trim(), isConnected:true, score:0, hand:[], unoCalled:false, avatar });
     rooms[roomCode]         = room;
     socketToRoom[socket.id] = { roomCode, playerId };
     socket.join(roomCode);
@@ -75,7 +75,7 @@ io.on('connection', (socket) => {
   });
 
   // ── Join Room ────────────────────────────────────────────────────────────
-  socket.on('joinRoom', ({ roomCode, playerName }) => {
+  socket.on('joinRoom', ({ roomCode, playerName, avatar = 'penguin' }) => {
     if (!playerName?.trim()) return socket.emit('error', { message: 'Name required' });
     const code = roomCode?.toUpperCase().trim();
     const room = rooms[code];
@@ -86,7 +86,7 @@ io.on('connection', (socket) => {
     if (room.players.find(p => p.name.toLowerCase() === playerName.trim().toLowerCase()))
                                   return socket.emit('error', { message: 'That name is already taken in this room' });
     const playerId = uuidv4();
-    room.players.push({ id:playerId, socketId:socket.id, name:playerName.trim(), isConnected:true, score:0, hand:[], unoCalled:false });
+    room.players.push({ id:playerId, socketId:socket.id, name:playerName.trim(), isConnected:true, score:0, hand:[], unoCalled:false, avatar });
     socketToRoom[socket.id] = { roomCode:code, playerId };
     socket.join(code);
     socket.emit('roomJoined', { roomCode:code, playerId, gameType:room.gameType });

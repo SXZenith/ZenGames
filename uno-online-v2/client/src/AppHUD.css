@@ -72,14 +72,17 @@
 }
 .mid-sb-title { font-size: 1.1rem; font-weight: 900; margin-bottom: 14px; text-align: center; }
 .mid-sb-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .9rem;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--border); font-size: .88rem;
 }
 .mid-sb-row:last-of-type { border-bottom: none; }
-.mid-sb-row.me { color: var(--blue); }
-.mid-sb-rank  { font-family: 'Bebas Neue',sans-serif; font-size: 1.1rem; color: var(--text-muted); width: 28px; }
-.mid-sb-name  { flex: 1; font-weight: 700; }
-.mid-sb-score { font-weight: 900; }
+.mid-sb-row.me .mid-sb-name { color: var(--blue); }
+.mid-sb-rank  { font-family: 'Bebas Neue',sans-serif; font-size: 1.1rem; color: var(--text-muted); width: 24px; flex-shrink: 0; }
+.mid-sb-name  { flex: 1; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mid-sb-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
+.mid-sb-pts   { font-weight: 900; font-size: .9rem; color: var(--blue); font-variant-numeric: tabular-nums; }
+.mid-sb-wins  { font-size: .68rem; font-weight: 700; color: var(--text-muted); }
+.mid-sb-row.me .mid-sb-pts { color: var(--blue); }
 
 /* Chat panel */
 .chat-toggle-btn { position: relative; }

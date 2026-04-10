@@ -4,6 +4,7 @@
  * UNO uses its own Game.jsx but imports the GamePicker from here.
  */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { getAvatar } from '../avatars';
 import './SharedRoom.css';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -309,7 +310,7 @@ export function WaitingRoom({
         <div className="player-list">
           {gameState.players.map((p, i) => (
             <div key={p.id} className={`player-slot filled ${p.id === playerId ? 'me' : ''}`}>
-              <div className="player-avatar" style={{ background: `hsl(${i * 90},60%,50%)` }}>{p.name[0].toUpperCase()}</div>
+              <div className="player-avatar"><img src={getAvatar(p.avatar).src} alt={p.name} /></div>
               <span className="player-slot-name">{p.name}{p.id === playerId ? ' (you)' : ''}</span>
               {i === 0 && <span className="host-badge">Host</span>}
               {!p.isConnected && <span className="dc-badge">✕</span>}

@@ -229,3 +229,24 @@
   background: var(--c); opacity: 0.75;
 }
 .wr-color-btn.selected .wr-color-swatch { opacity: 1; }
+
+/* ── Avatar image in player slots ── */
+.player-avatar {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  border: 2px solid var(--border) !important;
+  background: var(--surface2) !important;
+  flex-shrink: 0;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+.player-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

@@ -205,15 +205,16 @@
 @keyframes timer-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
 
 /* Play area: deck | discard | notifications */
-.play-area { display:flex; align-items:center; gap:32px; justify-content:center; }
-.deck-area  { display:flex; flex-direction:column; align-items:center; gap:8px; }
+.play-area { display:flex; align-items:flex-start; gap:40px; justify-content:center; }
+.deck-area  { display:flex; flex-direction:column; align-items:center; gap:4px; }
 .deck-count { font-size:.8rem; color:var(--text-muted); font-weight:700; }
 .draw-btn-slot {
-  height: 38px; /* always reserves space — no layout shift */
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: 4px;
+  width: 100%;
 }
 .draw-btn {
   background:linear-gradient(135deg,#4cc9f0,#06d6a0); color:#0f1117;
@@ -642,50 +643,68 @@ html, body {
   to   { width: 0%; }
 }
 /* duration set inline to 3s */
+@keyframes splash-rise {
+  from { opacity: 0; transform: translateY(32px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes emoji-bounce {
+  0%   { transform: scale(0) rotate(-15deg); }
+  60%  { transform: scale(1.2) rotate(5deg); }
+  80%  { transform: scale(0.95) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0); }
+}
 .win-splash {
-  min-height: 100vh;
+  position: fixed; inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  background: var(--bg, #0f1117);
+  gap: 14px;
+  background: rgba(10, 12, 20, 0.92);
+  backdrop-filter: blur(12px);
   padding: 24px;
-  animation: fadeIn 0.4s ease;
+  z-index: 800;
+  animation: splash-rise 0.5s cubic-bezier(0.34,1.2,0.64,1) forwards;
 }
-@keyframes fadeIn { from{opacity:0} to{opacity:1} }
-.win-splash-emoji { font-size: 5rem; animation: pop-in 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+.win-splash-emoji {
+  font-size: 5rem;
+  animation: emoji-bounce 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.1s both;
+}
 .win-splash-name {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 3.5rem;
   letter-spacing: 4px;
   color: #fff;
-  text-shadow: 0 0 40px rgba(255,217,61,0.6);
+  text-shadow: 0 0 40px rgba(255,217,61,0.5), 0 2px 20px rgba(0,0,0,0.8);
   text-align: center;
+  animation: splash-rise 0.5s ease 0.15s both;
 }
 .win-splash-score {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 800;
   color: #4cc9f0;
+  animation: splash-rise 0.5s ease 0.25s both;
 }
 .win-splash-sub {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   font-style: italic;
+  animation: splash-rise 0.5s ease 0.3s both;
 }
 .win-splash-bar {
-  width: 240px;
-  height: 4px;
-  background: rgba(255,255,255,0.1);
+  width: 220px;
+  height: 3px;
+  background: rgba(255,255,255,0.08);
   border-radius: 2px;
   overflow: hidden;
   margin-top: 8px;
+  animation: splash-rise 0.5s ease 0.35s both;
 }
 .win-splash-fill {
   height: 100%;
   background: linear-gradient(90deg, #4cc9f0, #06d6a0);
   border-radius: 2px;
-  animation: win-bar 3s linear forwards;
+  animation: win-bar 3s linear 0.5s forwards;
 }
 
 
