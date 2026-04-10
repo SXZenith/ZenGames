@@ -310,7 +310,7 @@ export function WaitingRoom({
         <div className="player-list">
           {gameState.players.map((p, i) => (
             <div key={p.id} className={`player-slot filled ${p.id === playerId ? 'me' : ''}`}>
-              <div className="player-avatar"><img src={getAvatar(p.avatar).src} alt={p.name} /></div>
+              <div className="player-avatar" style={{width:36,height:36,minWidth:36,minHeight:36,borderRadius:"50%",overflow:"hidden",flexShrink:0,padding:0}}><img src={getAvatar(p.avatar).src} alt={p.name} style={{width:36,height:36,objectFit:"cover",display:"block"}} /></div>
               <span className="player-slot-name">{p.name}{p.id === playerId ? ' (you)' : ''}</span>
               {i === 0 && <span className="host-badge">Host</span>}
               {!p.isConnected && <span className="dc-badge">✕</span>}

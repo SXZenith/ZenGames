@@ -89,8 +89,8 @@ export default function App() {
   // ── Callbacks ─────────────────────────────────────────────────────────────
   const emit = (ev, data) => socketRef.current?.emit(ev, data);
 
-  const createRoom     = useCallback((name, gameType, settings) => { setError(''); emit('createRoom', { playerName: name, gameType, settings }); }, []);
-  const joinRoom       = useCallback((code, name) => { setError(''); emit('joinRoom', { roomCode: code.toUpperCase(), playerName: name }); }, []);
+  const createRoom     = useCallback((name, gameType, settings, avatar) => { setError(''); emit('createRoom', { playerName: name, gameType, settings, avatar }); }, []);
+  const joinRoom       = useCallback((code, name, avatar) => { setError(''); emit('joinRoom', { roomCode: code.toUpperCase(), playerName: name, avatar }); }, []);
   const startGame      = useCallback(() => emit('startGame'), []);
   const rematch        = useCallback(() => emit('rematch'), []);
   const returnToLobby  = useCallback(() => emit('returnToLobby'), []);

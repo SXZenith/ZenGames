@@ -234,6 +234,7 @@ function applyEffect(game, card) {
 }
 
 function advanceTurn(game) {
+  game.drawingStreak = false; // always clear on turn advance
   const n = game.players.length;
   game.currentPlayerIndex = ((game.currentPlayerIndex + game.direction) % n + n) % n;
 }
@@ -302,12 +303,15 @@ function passTurn(game, playerId) {
   const playerIndex = game.players.findIndex(p => p.id === playerId);
   if (playerIndex !== game.currentPlayerIndex) return { error: 'Not your turn' };
   if (!game.drawingStreak) return { error: 'You must draw before passing' };
-  // Only allow pass if deck is empty — otherwise must keep drawing
   ensureDeck(game);
   const player = game.players[playerIndex];
   const hasPlayable = player.hand.some(c => isPlayableCard(c, game));
-  if (game.deck.length > 0 && !hasPlayable) return { error: 'Keep drawing — deck is not empty yet' };
-  if (hasPlayable) return { error: 'You have a playable card — play it!' };
+  // If drawUntilPlayable is on: must have empty deck and no playable card
+  if (game.settings.drawUntilPlayable) {
+    if (game.deck.length > 0 && !hasPlayable) return { error: 'Keep drawing — deck is not empty yet' };
+    if (hasPlayable) return { error: 'You have a playable card — play it!' };
+  }
+  // Safety: always allow pass if drawingStreak is set (prevents lock-up)
   game.drawingStreak = false;
   advanceTurn(game);
   return { success: true };

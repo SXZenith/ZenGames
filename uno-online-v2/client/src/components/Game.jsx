@@ -11,6 +11,31 @@ import { getAvatar } from '../avatars';
 
 const COLOR_NAMES = { red:'#ff3b52', yellow:'#ffd93d', green:'#06d6a0', blue:'#4cc9f0' };
 
+// Dramatic UNO sound — overrides the imported one
+function playDramaticUno() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const play = (freq, start, dur, type='square', vol=0.18) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, ctx.currentTime + start);
+      g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      o.start(ctx.currentTime + start);
+      o.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    // Big ascending power chord: low boom then rapid ascending notes
+    play(80,   0,    0.3, 'sawtooth', 0.2);  // low bass boom
+    play(440,  0.05, 0.15, 'square',  0.15); // punch
+    play(523,  0.12, 0.12, 'square',  0.15); // C
+    play(659,  0.18, 0.12, 'square',  0.15); // E
+    play(784,  0.23, 0.18, 'square',  0.15); // G
+    play(1047, 0.28, 0.25, 'square',  0.18); // high C — held
+    play(1047, 0.28, 0.25, 'sine',    0.1);  // sine layer for warmth
+  } catch(e) {}
+}
+
 function getFanStyle(index, total, isSelected) {
   if (total === 0) return {};
   // Use viewport width to keep cards on screen
@@ -369,7 +394,7 @@ export default function Game({
           return (
             <div key={p.id} className={`opponent-area ${isTheirTurn?'active-turn':''}`}>
               <div className="opp-info">
-                <div className="opp-avatar"><img src={getAvatar(p.avatar).src} alt={p.name} /></div>
+                <div className="opp-avatar" style={{width:56,height:56,minWidth:56,minHeight:56,borderRadius:"50%",overflow:"hidden",flexShrink:0}}><img src={getAvatar(p.avatar).src} alt={p.name} style={{width:56,height:56,objectFit:"cover",display:"block"}} /></div>
                 <div>
                   <div className="opp-name">{p.name}</div>
                   <div className="opp-count">{p.handSize} card{p.handSize!==1?'s':''}</div>
@@ -439,7 +464,7 @@ export default function Game({
             <div className="deck-count">{gameState.deckSize} left</div>
             {/* Fixed-height slot — always reserves space, never shifts layout */}
             <div className="draw-btn-slot">
-              {isMyTurn && gameState.pendingDraw===0 && gameState.deckSize===0 && drawingStreak
+              {isMyTurn && drawingStreak && gameState.pendingDraw===0 && gameState.deckSize===0 && settings.drawUntilPlayable && !hasPlayable
                 ? <button className="pass-btn" onClick={onPassTurn}>Pass</button>
                 : canDraw
                 ? <button className="draw-btn" onClick={onDrawCard}>{drawLabel}</button>
@@ -525,7 +550,7 @@ export default function Game({
 
 
         {showUnoButton && (
-          <button className="my-uno-btn" onClick={() => { onCallUno(); soundUno(); }}>
+          <button className="my-uno-btn" onClick={() => { onCallUno(); playDramaticUno(); }}>
             🃏 UNO!
           </button>
         )}
