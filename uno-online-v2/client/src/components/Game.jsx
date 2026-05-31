@@ -69,7 +69,9 @@ export default function Game({
   const [deckShake,       setDeckShake]       = useState(false);
   const [unoTimer,        setUnoTimer]        = useState(null);
   const [toastMsg,        setToastMsg]        = useState('');
-  const [actionMsg,       setActionMsg]       = useState(null); // {text, color}
+  const [actionMsg,       setActionMsg]       = useState(null);
+  const [sortMode,        setSortMode]        = useState('none'); // 'none' | 'color' | 'value'
+  const [tableTheme,      setTableTheme]      = useState(() => localStorage.getItem('zg-theme') || 'default');
   const [showWinner,      setShowWinner]      = useState(false);
   const [showScoreboard,  setShowScoreboard]  = useState(false);
 
@@ -207,6 +209,11 @@ export default function Game({
       setShowScoreboard(false);
     }
   }, [gameState.state]);
+
+  // ── Save theme to localStorage ───────────────────────────────────────────
+  useEffect(() => {
+    localStorage.setItem('zg-theme', tableTheme);
+  }, [tableTheme]);
 
   // ── Keep-alive ping to prevent Render from sleeping ─────────────────────
   useEffect(() => {
@@ -379,7 +386,7 @@ export default function Game({
     : drawingStreak ? 'Draw Again' : 'Draw';
 
   return (
-    <div className="game">
+    <div className={`game theme-${tableTheme}`}>
       {pendingWildCard && <ColorPicker onChoose={handleColorChosen} />}
 
 
@@ -464,9 +471,7 @@ export default function Game({
             <div className="deck-count">{gameState.deckSize} left</div>
             {/* Fixed-height slot — always reserves space, never shifts layout */}
             <div className="draw-btn-slot">
-              {isMyTurn && drawingStreak && gameState.pendingDraw===0 && gameState.deckSize===0 && settings.drawUntilPlayable && !hasPlayable
-                ? <button className="pass-btn" onClick={onPassTurn}>Pass</button>
-                : canDraw
+              {canDraw
                 ? <button className="draw-btn" onClick={onDrawCard}>{drawLabel}</button>
                 : null}
             </div>
@@ -526,7 +531,7 @@ export default function Game({
           </div>
           {iAmVulnerable && <span className="uno-warn">⚠ Call UNO!</span>}
           {drawingStreak && playableSet.size > 0 && <span className="drawing-hint">▲ Play it!</span>}
-          {drawingStreak && playableSet.size === 0 && <span className="drawing-hint">Keep drawing…</span>}
+
         </div>
 
         <div className="hand-fan-container">

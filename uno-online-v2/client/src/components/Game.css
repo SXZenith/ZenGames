@@ -781,3 +781,78 @@ html, body {
   0%,100% { opacity: 1; }
   50%      { opacity: 0.65; }
 }
+/* ═══ TABLE THEMES ═══ */
+body { transition: background 0.4s ease; }
+
+.theme-default { background: #0f1117; }
+.theme-forest  { background: #0d1f0e; }
+.theme-ocean   { background: #061826; }
+.theme-purple  { background: #12062b; }
+.theme-crimson { background: #1a0606; }
+
+/* Apply theme to body too via JS isn't needed — .game fills 100vh */
+.theme-default, .theme-forest, .theme-ocean, .theme-purple, .theme-crimson {
+  min-height: 100vh;
+  transition: background 0.4s ease;
+}
+
+/* ═══ HAND TOOLS (sort + theme) ═══ */
+.hand-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.sort-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  color: var(--text-muted);
+  line-height: 1;
+}
+.sort-btn:hover { background: rgba(255,255,255,0.12); }
+.sort-btn.active {
+  background: rgba(76,201,240,0.15);
+  border-color: rgba(76,201,240,0.4);
+  color: #4cc9f0;
+}
+
+.theme-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+
+.theme-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--tc);
+  border: 1.5px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  padding: 0;
+}
+.theme-dot:hover { transform: scale(1.2); border-color: rgba(255,255,255,0.5); }
+.theme-dot.active {
+  transform: scale(1.25);
+  border-color: #fff;
+  box-shadow: 0 0 6px rgba(255,255,255,0.4);
+}
+
+/* Make hand-label a bit taller to fit the tools row */
+.hand-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 6px;
+}

@@ -272,10 +272,11 @@ function forceDraw(game, playerId) {
     }
 
     ensureDeck(game);
+    // If still empty after reshuffle, just advance turn — no lockup
     if (game.deck.length === 0) {
-      // Deck empty and no playable card — force pass
-      game.drawingStreak = true; // allow passTurn
-      return { blocked: true, deckEmpty: true };
+      game.drawingStreak = false;
+      advanceTurn(game);
+      return { success: true, drew: 0, deckEmpty: true };
     }
 
     const card = game.deck.pop();
@@ -289,7 +290,7 @@ function forceDraw(game, playerId) {
 
   // ── Normal draw: draw 1 then end turn ─────────────────────────────────
   ensureDeck(game);
-  if (game.deck.length === 0) return { error: 'Deck is empty' };
+  if (game.deck.length === 0) { advanceTurn(game); return { success: true, drew: 0, deckEmpty: true }; }
   const card = game.deck.pop();
   player.hand.push(card);
   game.drawingStreak = false;
