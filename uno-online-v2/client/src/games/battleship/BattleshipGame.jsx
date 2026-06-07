@@ -1,367 +1,310 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { WaitingRoom, GameOver } from '../SharedRoom';
 import './BattleshipGame.css';
 
 // ── Audio ─────────────────────────────────────────────────────────────────────
-let _ac = null;
-const getAC = () => { if (!_ac) _ac = new (window.AudioContext||window.webkitAudioContext)(); return _ac; };
-const beep = (f,d,t='sine',v=0.12) => {
-  try {
-    const o=getAC().createOscillator(), g=getAC().createGain();
-    o.connect(g); g.connect(getAC().destination);
-    o.type=t; o.frequency.value=f;
-    g.gain.setValueAtTime(v, getAC().currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, getAC().currentTime+d);
-    o.start(); o.stop(getAC().currentTime+d+0.02);
-  } catch(e){}
+let _ac=null;
+const getAC=()=>{if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();return _ac;};
+const beep=(f,d,t='sine',v=0.12)=>{try{const o=getAC().createOscillator(),g=getAC().createGain();o.connect(g);g.connect(getAC().destination);o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,getAC().currentTime);g.gain.exponentialRampToValueAtTime(0.001,getAC().currentTime+d);o.start();o.stop(getAC().currentTime+d+0.02);}catch(e){}};
+const sndHit   =()=>{beep(500,0.05,'square',0.2);setTimeout(()=>beep(300,0.2,'sawtooth',0.15),60);};
+const sndMiss  =()=>{beep(250,0.15,'sine',0.1);setTimeout(()=>beep(180,0.15,'sine',0.07),100);};
+const sndSink  =()=>[400,350,280,200,150].forEach((f,i)=>setTimeout(()=>beep(f,0.2,'sawtooth',0.18),i*80));
+const sndPlace =()=>beep(440,0.08,'square',0.1);
+const sndRotate=()=>{beep(600,0.05,'square',0.08);setTimeout(()=>beep(800,0.05,'square',0.06),60);};
+
+// ── Ship colors ───────────────────────────────────────────────────────────────
+const SHIP_COLOR={
+  Carrier:'#e63946', Battleship:'#f4a261', Cruiser:'#4cc9f0',
+  Submarine:'#06d6a0', Destroyer:'#c840ff', Boat:'#ffb3c6',
+  Cruiser2:'#7ec8e3', Cruiser3:'#a8dadc', Cruiser4:'#b5ead7',
 };
-const sndHit    = () => { beep(500,0.05,'square',0.2); setTimeout(()=>beep(300,0.2,'sawtooth',0.15),60); };
-const sndMiss   = () => { beep(250,0.15,'sine',0.1); setTimeout(()=>beep(180,0.15,'sine',0.07),100); };
-const sndSink   = () => [400,350,280,200,150].forEach((f,i)=>setTimeout(()=>beep(f,0.2,'sawtooth',0.18),i*80));
-const sndPlace  = () => beep(440,0.08,'square',0.1);
-const sndRotate = () => { beep(600,0.05,'square',0.08); setTimeout(()=>beep(800,0.05,'square',0.06),60); };
+const getColor=(name)=>SHIP_COLOR[name]||'#4cc9f0';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-const SIZE = 10;
-const COLS = ['1','2','3','4','5','6','7','8','9','10'];
-const ROWS = ['A','B','C','D','E','F','G','H','I','J'];
-
-const SHIP_DEFS = [
-  { name:'Carrier',    size:5, color:'#e63946' },
-  { name:'Battleship', size:4, color:'#f4a261' },
-  { name:'Cruiser',    size:3, color:'#4cc9f0' },
-  { name:'Submarine',  size:3, color:'#06d6a0' },
-  { name:'Destroyer',  size:2, color:'#c840ff' },
-];
-
-// ── Ship sprite using CSS/SVG ─────────────────────────────────────────────────
-function ShipSprite({ name, size, horiz, cellSize, sunk }) {
-  const w = horiz ? size * cellSize : cellSize;
-  const h = horiz ? cellSize : size * cellSize;
-  const color = SHIP_DEFS.find(s=>s.name===name)?.color || '#888';
-  const dim = Math.min(w, h);
-
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className={`ship-svg ${sunk?'sunk':''}`}>
+// ── Ship SVG sprite ───────────────────────────────────────────────────────────
+function ShipSprite({name,size,horiz,cs,sunk}){
+  const w=horiz?size*cs:cs, h=horiz?cs:size*cs;
+  const col=getColor(name);
+  if(size===1) return (
+    <svg width={cs} height={cs} viewBox={`0 0 ${cs} ${cs}`} className={`ship-svg${sunk?' sunk':''}`}>
+      <circle cx={cs/2} cy={cs/2} r={cs/2-3} fill={col} stroke="rgba(0,0,0,0.4)" strokeWidth="2"/>
+      <circle cx={cs/2} cy={cs/2} r={cs/4} fill="rgba(0,0,0,0.25)"/>
+      {sunk&&<rect x={0} y={0} width={cs} height={cs} fill="rgba(0,0,0,0.5)" rx={cs/2}/>}
+    </svg>
+  );
+  const r=4;
+  return(
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className={`ship-svg${sunk?' sunk':''}`}>
       <defs>
-        <linearGradient id={`sg-${name}`} x1="0%" y1="0%" x2={horiz?"100%":"0%"} y2={horiz?"0%":"100%"}>
-          <stop offset="0%"   stopColor={color} stopOpacity="0.9"/>
-          <stop offset="50%"  stopColor={color} stopOpacity="1"/>
-          <stop offset="100%" stopColor={color} stopOpacity="0.7"/>
+        <linearGradient id={`g${name}${horiz?'h':'v'}`} x1="0%" y1="0%" x2={horiz?"100%":"0%"} y2={horiz?"0%":"100%"}>
+          <stop offset="0%" stopColor={col} stopOpacity="0.8"/>
+          <stop offset="50%" stopColor={col} stopOpacity="1"/>
+          <stop offset="100%" stopColor={col} stopOpacity="0.65"/>
         </linearGradient>
       </defs>
-      {/* Hull */}
-      {horiz ? (
+      {horiz?(
         <>
-          <path d={`M${dim*0.3},4 L${w-dim*0.3},4 Q${w-2},4 ${w-2},${h/2} Q${w-2},${h-4} ${w-dim*0.3},${h-4} L${dim*0.3},${h-4} Q2,${h-4} 2,${h/2} Q2,4 ${dim*0.3},4 Z`}
-            fill={`url(#sg-${name})`} stroke="rgba(0,0,0,0.4)" strokeWidth="1.5"/>
-          {/* Deck details */}
+          <path d={`M${cs*0.35},3 L${w-cs*0.35},3 Q${w-3},3 ${w-3},${h/2} Q${w-3},${h-3} ${w-cs*0.35},${h-3} L${cs*0.35},${h-3} Q3,${h-3} 3,${h/2} Q3,3 ${cs*0.35},3Z`}
+            fill={`url(#g${name}h)`} stroke="rgba(0,0,0,0.35)" strokeWidth="1.5"/>
           {Array.from({length:size-1}).map((_,i)=>(
-            <line key={i} x1={(i+1)*cellSize} y1="6" x2={(i+1)*cellSize} y2={h-6}
-              stroke="rgba(0,0,0,0.2)" strokeWidth="1"/>
+            <line key={i} x1={(i+1)*cs} y1="5" x2={(i+1)*cs} y2={h-5} stroke="rgba(0,0,0,0.2)" strokeWidth="1"/>
           ))}
-          {/* Bridge */}
-          <rect x={w*0.5-dim*0.15} y={h*0.2} width={dim*0.3} height={h*0.6}
-            fill="rgba(0,0,0,0.25)" rx="2"/>
-          {/* Turrets */}
-          {size>=4 && <circle cx={w*0.25} cy={h/2} r={dim*0.1} fill="rgba(0,0,0,0.3)"/>}
-          {size>=4 && <circle cx={w*0.75} cy={h/2} r={dim*0.1} fill="rgba(0,0,0,0.3)"/>}
+          <rect x={w*0.45} y={h*0.2} width={w*0.1} height={h*0.6} fill="rgba(0,0,0,0.22)" rx="2"/>
+          {size>=4&&<circle cx={w*0.22} cy={h/2} r={cs*0.13} fill="rgba(0,0,0,0.28)"/>}
+          {size>=4&&<circle cx={w*0.78} cy={h/2} r={cs*0.13} fill="rgba(0,0,0,0.28)"/>}
+          <rect x="3" y="3" width={w-6} height="6" rx="3" fill="rgba(255,255,255,0.1)"/>
         </>
-      ) : (
+      ):(
         <>
-          <path d={`M4,${dim*0.3} L4,${h-dim*0.3} Q4,${h-2} ${w/2},${h-2} Q${w-4},${h-2} ${w-4},${h-dim*0.3} L${w-4},${dim*0.3} Q${w-4},2 ${w/2},2 Q4,2 4,${dim*0.3} Z`}
-            fill={`url(#sg-${name})`} stroke="rgba(0,0,0,0.4)" strokeWidth="1.5"/>
+          <path d={`M3,${cs*0.35} L3,${h-cs*0.35} Q3,${h-3} ${w/2},${h-3} Q${w-3},${h-3} ${w-3},${h-cs*0.35} L${w-3},${cs*0.35} Q${w-3},3 ${w/2},3 Q3,3 3,${cs*0.35}Z`}
+            fill={`url(#g${name}v)`} stroke="rgba(0,0,0,0.35)" strokeWidth="1.5"/>
           {Array.from({length:size-1}).map((_,i)=>(
-            <line key={i} x1="6" y1={(i+1)*cellSize} x2={w-6} y2={(i+1)*cellSize}
-              stroke="rgba(0,0,0,0.2)" strokeWidth="1"/>
+            <line key={i} x1="5" y1={(i+1)*cs} x2={w-5} y2={(i+1)*cs} stroke="rgba(0,0,0,0.2)" strokeWidth="1"/>
           ))}
-          <rect x={w*0.2} y={h*0.5-dim*0.15} width={w*0.6} height={dim*0.3}
-            fill="rgba(0,0,0,0.25)" rx="2"/>
-          {size>=4 && <circle cx={w/2} cy={h*0.25} r={dim*0.1} fill="rgba(0,0,0,0.3)"/>}
-          {size>=4 && <circle cx={w/2} cy={h*0.75} r={dim*0.1} fill="rgba(0,0,0,0.3)"/>}
+          <rect x={w*0.2} y={h*0.45} width={w*0.6} height={h*0.1} fill="rgba(0,0,0,0.22)" rx="2"/>
+          {size>=4&&<circle cx={w/2} cy={h*0.22} r={cs*0.13} fill="rgba(0,0,0,0.28)"/>}
+          {size>=4&&<circle cx={w/2} cy={h*0.78} r={cs*0.13} fill="rgba(0,0,0,0.28)"/>}
+          <rect x="3" y="3" width="6" height={h-6} rx="3" fill="rgba(255,255,255,0.1)"/>
         </>
       )}
-      {/* Sunk overlay */}
-      {sunk && <rect x="0" y="0" width={w} height={h} fill="rgba(0,0,0,0.5)" rx="4"/>}
+      {sunk&&<rect x={0} y={0} width={w} height={h} fill="rgba(0,0,0,0.55)" rx={r}/>}
     </svg>
   );
 }
 
-// ── Explosion animation ────────────────────────────────────────────────────────
-function Explosion({ x, y, onDone }) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 900);
-    return () => clearTimeout(t);
-  }, []);
-  return (
-    <div className="explosion" style={{ left: x, top: y }}>
-      {Array.from({length:12}).map((_,i) => (
-        <div key={i} className="exp-particle" style={{
-          '--angle': `${i*30}deg`,
-          '--dist': `${20+Math.random()*30}px`,
-          '--color': ['#ff4500','#ff8c00','#ffd700','#ff3131'][i%4],
+// ── Explosion ─────────────────────────────────────────────────────────────────
+function Explosion({x,y,onDone}){
+  useEffect(()=>{const t=setTimeout(onDone,1000);return()=>clearTimeout(t);},[]);
+  return(
+    <div className="bs-explosion" style={{left:x,top:y}}>
+      {Array.from({length:16}).map((_,i)=>(
+        <div key={i} className="exp-p" style={{
+          '--a':`${i*22.5}deg`,
+          '--d':`${18+Math.random()*28}px`,
+          '--c':['#ff4500','#ff8c00','#ffd700','#ff3131','#ffb347'][i%5],
+          '--dur':`${0.5+Math.random()*0.4}s`,
         }}/>
       ))}
       <div className="exp-core"/>
+      <div className="exp-ring"/>
     </div>
   );
 }
 
-// ── Auto-place helper (client side) ──────────────────────────────────────────
-function clientAutoPlace() {
-  const grid = Array.from({length:SIZE}, ()=>Array(SIZE).fill(null));
-  const ships = [];
-  for (const def of SHIP_DEFS) {
-    let ok=false, attempts=0;
-    while (!ok && attempts++<500) {
-      const horiz = Math.random()<0.5;
-      const row = Math.floor(Math.random()*(horiz?SIZE:SIZE-def.size+1));
-      const col = Math.floor(Math.random()*(horiz?SIZE-def.size+1:SIZE));
-      const cells=[];
-      let valid=true;
-      for (let i=0;i<def.size;i++) {
-        const r=horiz?row:row+i, c=horiz?col+i:col;
-        if (r<0||r>=SIZE||c<0||c>=SIZE||grid[r][c]!==null){valid=false;break;}
+// ── Auto-place (client) ───────────────────────────────────────────────────────
+function clientAutoPlace(shipDefs,size){
+  const grid=Array.from({length:size},()=>Array(size).fill(null));
+  const ships=[];
+  for(const def of shipDefs){
+    let ok=false,attempts=0;
+    while(!ok&&attempts++<1000){
+      const horiz=def.size===1?true:Math.random()<0.5;
+      const row=Math.floor(Math.random()*(horiz?size:size-def.size+1));
+      const col=Math.floor(Math.random()*(horiz?size-def.size+1:size));
+      const cells=[];let valid=true;
+      for(let i=0;i<def.size;i++){
+        const r=horiz?row:row+i,c=horiz?col+i:col;
+        if(r<0||r>=size||c<0||c>=size||grid[r][c]!==null){valid=false;break;}
         cells.push([r,c]);
       }
-      if (valid) {
-        cells.forEach(([r,c])=>{grid[r][c]=def.name;});
-        ships.push({name:def.name,size:def.size,cells,horiz,sunk:false});
-        ok=true;
-      }
+      if(valid){cells.forEach(([r,c])=>{grid[r][c]=def.name;});ships.push({name:def.name,size:def.size,cells,horiz,sunk:false});ok=true;}
     }
   }
   return ships;
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function BattleshipGame({
-  gameState, playerId, roomCode, roomLink,
-  onStartGame, onRematch, onReturnToLobby, onChangeGame, onGameAction, error,
-}) {
-  // ── ALL HOOKS FIRST ──────────────────────────────────────────────────────────
-  const [placedShips,   setPlacedShips]   = useState([]);
-  const [selectedShip,  setSelectedShip]  = useState(null); // def index
-  const [shipHoriz,     setShipHoriz]     = useState(true);
-  const [hoverCell,     setHoverCell]     = useState(null);
-  const [explosions,    setExplosions]    = useState([]); // [{id,row,col}]
-  const [lastShot,      setLastShot]      = useState(null);
-  const prevShotsRef    = useRef([]);
-  const cellSize = 44;
+  gameState,playerId,roomCode,roomLink,
+  onStartGame,onRematch,onReturnToLobby,onChangeGame,onGameAction,error,
+}){
+  // ALL HOOKS FIRST
+  const [placed,      setPlaced]      = useState([]);
+  const [selShip,     setSelShip]     = useState(null);
+  const [horiz,       setHoriz]       = useState(true);
+  const [hover,       setHover]       = useState(null);
+  const [explosions,  setExplosions]  = useState([]);
+  const prevMyRef   = useRef([]);
+  const prevOppRef  = useRef([]);
 
-  // Detect new shots for explosion/sound
-  useEffect(() => {
-    const myData = gameState.publicBoards?.[playerId];
-    if (!myData) return;
+  const SIZE     = gameState.size || 10;
+  const shipDefs = gameState.shipDefs || [{name:'Carrier',size:5},{name:'Battleship',size:4},{name:'Cruiser',size:3},{name:'Submarine',size:3},{name:'Destroyer',size:2}];
 
-    // Shots on MY board (opponent fired at me)
-    const myShots = myData.myShots || [];
-    const prevMy  = prevShotsRef.current;
-    const newShots = myShots.filter(s => !prevMy.find(p=>p.row===s.row&&p.col===s.col));
-    newShots.forEach(s => {
-      if (s.hit) { sndHit(); addExplosion(s.row, s.col, 'my'); }
-      else sndMiss();
+  // Cell size: bigger boards get smaller cells
+  const CS = SIZE<=10 ? 50 : SIZE<=12 ? 42 : 34;
+
+  const COLS = Array.from({length:SIZE},(_,i)=>`${i+1}`);
+  const ROWS = 'ABCDEFGHIJKLMNO'.slice(0,SIZE).split('');
+
+  // Detect shots for sounds/explosions
+  useEffect(()=>{
+    const d=gameState.publicBoards?.[playerId];
+    if(!d) return;
+    const newMy=d.myShots.filter(s=>!prevMyRef.current.find(p=>p.row===s.row&&p.col===s.col));
+    newMy.forEach(s=>{
+      if(s.hit){sndHit();addExp(s.row,s.col,'my');}else sndMiss();
     });
-
-    // Shots on OPP board (I fired)
-    const oppShots = myData.oppShots || [];
-    const prevOpp  = prevShotsRef.current.opp || [];
-    const newOpp   = oppShots.filter(s => !prevOpp.find(p=>p.row===s.row&&p.col===s.col));
-    newOpp.forEach(s => {
-      if (s.hit) {
-        sndHit();
-        addExplosion(s.row, s.col, 'opp');
-        const sunkShip = gameState.publicBoards[playerId]?.oppSunkShips?.find(sh =>
-          sh.cells?.some(([r,c])=>r===s.row&&c===s.col)
-        );
-        if (sunkShip) sndSink();
-      } else sndMiss();
+    const newOpp=d.oppShots.filter(s=>!prevOppRef.current.find(p=>p.row===s.row&&p.col===s.col));
+    newOpp.forEach(s=>{
+      if(s.hit){
+        sndHit();addExp(s.row,s.col,'opp');
+        const sk=d.oppSunkShips.find(sh=>sh.cells?.some(([r,c])=>r===s.row&&c===s.col));
+        if(sk)sndSink();
+      }else sndMiss();
     });
+    prevMyRef.current=d.myShots;
+    prevOppRef.current=d.oppShots;
+  },[gameState.publicBoards]);
 
-    prevShotsRef.current = myShots;
-    prevShotsRef.current.opp = oppShots;
-  }, [gameState.publicBoards]);
+  const addExp=(r,c,board)=>setExplosions(e=>[...e,{id:Date.now()+Math.random(),row:r,col:c,board}]);
+  const rmExp=(id)=>setExplosions(e=>e.filter(x=>x.id!==id));
 
-  const addExplosion = (row, col, board) => {
-    const id = Date.now() + Math.random();
-    setExplosions(e => [...e, { id, row, col, board }]);
-  };
-
-  const removeExplosion = (id) => setExplosions(e => e.filter(x=>x.id!==id));
-
-  // Ship placement helpers
-  const getPlacementCells = (row, col, shipIdx, horiz) => {
-    if (shipIdx === null) return [];
-    const size = SHIP_DEFS[shipIdx].size;
-    const cells = [];
-    for (let i=0;i<size;i++) {
-      cells.push(horiz ? [row, col+i] : [row+i, col]);
-    }
+  const getHoverCells=(r,c,idx,hz)=>{
+    if(idx===null) return [];
+    const size=shipDefs[idx].size;
+    const cells=[];
+    for(let i=0;i<size;i++) cells.push(hz?[r,c+i]:[r+i,c]);
     return cells;
   };
 
-  const isPlacementValid = (cells) => {
-    if (!cells.length) return false;
-    for (const [r,c] of cells) {
-      if (r<0||r>=SIZE||c<0||c>=SIZE) return false;
-      if (placedShips.some(s=>s.cells.some(([sr,sc])=>sr===r&&sc===c))) return false;
+  const isValid=(cells)=>{
+    for(const [r,c] of cells){
+      if(r<0||r>=SIZE||c<0||c>=SIZE) return false;
+      if(placed.some(s=>s.cells.some(([sr,sc])=>sr===r&&sc===c))) return false;
     }
-    return true;
+    return cells.length>0;
   };
 
-  const handlePlaceClick = (row, col) => {
-    if (selectedShip === null) return;
-    const def = SHIP_DEFS[selectedShip];
-    if (placedShips.find(s=>s.name===def.name)) return; // already placed
-    const cells = getPlacementCells(row, col, selectedShip, shipHoriz);
-    if (!isPlacementValid(cells)) return;
+  const placeShip=(r,c)=>{
+    if(selShip===null) return;
+    const def=shipDefs[selShip];
+    if(placed.find(s=>s.name===def.name)) return;
+    const cells=getHoverCells(r,c,selShip,horiz);
+    if(!isValid(cells)) return;
     sndPlace();
-    setPlacedShips(prev => [...prev, { name:def.name, size:def.size, cells, horiz:shipHoriz, sunk:false }]);
-    // Auto-select next unplaced ship
-    const nextIdx = SHIP_DEFS.findIndex((d,i) =>
-      i > selectedShip && !placedShips.some(s=>s.name===d.name) && d.name!==def.name
-    );
-    setSelectedShip(nextIdx === -1 ? null : nextIdx);
+    const next=[...placed,{name:def.name,size:def.size,cells,horiz,sunk:false}];
+    setPlaced(next);
+    const nextIdx=shipDefs.findIndex((d,i)=>i>selShip&&!next.find(s=>s.name===d.name));
+    setSelShip(nextIdx===-1?null:nextIdx);
   };
 
-  const handleRemoveShip = (name) => {
-    setPlacedShips(prev => prev.filter(s=>s.name!==name));
+  const removeShip=(name)=>setPlaced(p=>p.filter(s=>s.name!==name));
+  const shuffle=()=>{setPlaced(clientAutoPlace(shipDefs,SIZE));setSelShip(null);};
+
+  const handleReady=()=>{
+    if(placed.length!==shipDefs.length) return;
+    onGameAction('placeShips',{ships:placed});
+    setTimeout(()=>onGameAction('ready',{}),150);
   };
 
-  const handleShuffle = () => {
-    setPlacedShips(clientAutoPlace());
-    setSelectedShip(null);
+  const shoot=(r,c)=>{
+    const d=gameState.publicBoards?.[playerId];
+    if(!d||d.oppShots.find(s=>s.row===r&&s.col===c)) return;
+    onGameAction('shoot',{row:r,col:c});
   };
 
-  const handleReady = () => {
-    if (placedShips.length !== SHIP_DEFS.length) return;
-    onGameAction('placeShips', { ships: placedShips });
-    setTimeout(() => onGameAction('ready', {}), 100);
-  };
+  const isMyTurn=gameState.players?.[gameState.currentPlayerIndex]?.id===playerId;
+  const myData=gameState.publicBoards?.[playerId]||{myShips:[],myShots:[],oppShots:[],oppSunkShips:[]};
 
-  const handleShoot = (row, col) => {
-    const myData = gameState.publicBoards?.[playerId];
-    if (!myData) return;
-    if (myData.oppShots.find(s=>s.row===row&&s.col===col)) return;
-    onGameAction('shoot', { row, col });
-  };
+  // EARLY RETURNS
+  if(gameState.state==='waiting')
+    return <WaitingRoom gameState={gameState} playerId={playerId} roomCode={roomCode} roomLink={roomLink}
+      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error}/>;
 
-  const isMyTurn = gameState.players?.[gameState.currentPlayerIndex]?.id === playerId;
-  const myData   = gameState.publicBoards?.[playerId] || { myShips:[], myShots:[], oppShots:[], oppSunkShips:[] };
+  if(gameState.state==='finished')
+    return <GameOver gameState={gameState} playerId={playerId} onRematch={onRematch} onReturnToLobby={onReturnToLobby}/>;
 
-  // ── Early returns AFTER hooks ────────────────────────────────────────────────
-  if (gameState.state === 'waiting') {
-    return <WaitingRoom gameState={gameState} playerId={playerId}
-      roomCode={roomCode} roomLink={roomLink}
-      onStartGame={onStartGame} onChangeGame={onChangeGame} error={error} />;
-  }
+  // ── PLACEMENT ────────────────────────────────────────────────────────────────
+  if(gameState.state==='placing'){
+    const myPlayer=gameState.players?.find(p=>p.id===playerId);
+    const isReady=myPlayer?.ready;
+    const hCells=hover&&selShip!==null?getHoverCells(hover[0],hover[1],selShip,horiz):[];
+    const hValid=isValid(hCells);
 
-  if (gameState.state === 'finished') {
-    return <GameOver gameState={gameState} playerId={playerId}
-      onRematch={onRematch} onReturnToLobby={onReturnToLobby} />;
-  }
-
-  // ── Placement phase ──────────────────────────────────────────────────────────
-  if (gameState.state === 'placing') {
-    const myPlayer = gameState.players?.find(p=>p.id===playerId);
-    const isReady  = myPlayer?.ready;
-    const hoverCells = hoverCell && selectedShip !== null
-      ? getPlacementCells(hoverCell[0], hoverCell[1], selectedShip, shipHoriz)
-      : [];
-    const hoverValid = isPlacementValid(hoverCells);
-
-    return (
+    return(
       <div className="bs-game">
         <div className="bs-place-header">
-          <h2>Place Your Fleet</h2>
-          <p className="bs-place-sub">Click a ship, then click the grid to place it. Click placed ships to remove them.</p>
+          <h2>⚓ Place Your Fleet</h2>
+          <p>Select a ship · Click grid to place · Click placed ship to remove</p>
         </div>
-
         <div className="bs-place-layout">
           {/* Grid */}
-          <div className="bs-grid-wrap">
-            <div className="bs-grid" style={{ '--cs': `${cellSize}px`, '--size': SIZE }}>
-              {/* Corner */}
+          <div className="bs-grid-outer" style={{'--cs':`${CS}px`,'--sz':SIZE}}>
+            {/* Column headers */}
+            <div className="bs-headers-row">
               <div className="bs-corner"/>
-              {/* Col headers */}
-              {COLS.map(c => <div key={c} className="bs-col-header">{c}</div>)}
-              {/* Rows */}
-              {Array.from({length:SIZE}).map((_,r) => (
-                <React.Fragment key={r}>
-                  <div className="bs-row-header">{ROWS[r]}</div>
-                  {Array.from({length:SIZE}).map((_,c) => {
-                    const ship = placedShips.find(s=>s.cells.some(([sr,sc])=>sr===r&&sc===c));
-                    const isHover = hoverCells.some(([hr,hc])=>hr===r&&hc===c);
-                    return (
-                      <div key={c}
-                        className={`bs-cell placement-cell ${ship?'has-ship':''} ${isHover?(hoverValid?'hover-valid':'hover-invalid'):''}`}
-                        onClick={() => ship ? handleRemoveShip(ship.name) : handlePlaceClick(r,c)}
-                        onMouseEnter={() => setHoverCell([r,c])}
-                        onMouseLeave={() => setHoverCell(null)}
-                      >
-                        {ship && (
-                          <div className="bs-ship-cell-fill" style={{background: SHIP_DEFS.find(d=>d.name===ship.name)?.color||'#888'}}/>
-                        )}
-                      </div>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
+              {COLS.map(c=><div key={c} className="bs-col-hdr">{c}</div>)}
             </div>
-            {/* Ship overlays */}
-            {placedShips.map(ship => {
-              const [r0,c0] = ship.cells[0];
-              return (
-                <div key={ship.name} className="bs-ship-overlay"
-                  style={{
-                    position:'absolute',
-                    top: (r0+1)*cellSize + 2,
-                    left: (c0+1)*cellSize + 2,
-                    width: ship.horiz ? ship.size*cellSize-4 : cellSize-4,
-                    height: ship.horiz ? cellSize-4 : ship.size*cellSize-4,
-                    pointerEvents:'none',
-                  }}>
-                  <ShipSprite name={ship.name} size={ship.size} horiz={ship.horiz} cellSize={cellSize-4}/>
-                </div>
-              );
-            })}
+            <div className="bs-body-row">
+              {/* Row headers */}
+              <div className="bs-row-hdrs">
+                {ROWS.map(r=><div key={r} className="bs-row-hdr">{r}</div>)}
+              </div>
+              {/* Cells */}
+              <div className="bs-grid-cells" style={{position:'relative'}}>
+                {Array.from({length:SIZE}).map((_,r)=>(
+                  <div key={r} className="bs-row">
+                    {Array.from({length:SIZE}).map((_,c)=>{
+                      const ship=placed.find(s=>s.cells.some(([sr,sc])=>sr===r&&sc===c));
+                      const isH=hCells.some(([hr,hc])=>hr===r&&hc===c);
+                      return(
+                        <div key={c}
+                          className={`bs-cell${ship?' has-ship':''}${isH?(hValid?' hv':' hi'):''}`}
+                          onClick={()=>ship?removeShip(ship.name):placeShip(r,c)}
+                          onMouseEnter={()=>setHover([r,c])}
+                          onMouseLeave={()=>setHover(null)}/>
+                      );
+                    })}
+                  </div>
+                ))}
+                {/* Ship sprites */}
+                {placed.map(ship=>{
+                  const [r0,c0]=ship.cells[0];
+                  return(
+                    <div key={ship.name} className="bs-sprite-overlay" style={{
+                      top:r0*CS, left:c0*CS,
+                      width:ship.horiz?ship.size*CS:CS,
+                      height:ship.horiz?CS:ship.size*CS,
+                    }}>
+                      <ShipSprite name={ship.name} size={ship.size} horiz={ship.horiz} cs={CS}/>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* Ship selector panel */}
-          <div className="bs-ship-panel">
+          {/* Panel */}
+          <div className="bs-panel">
             <div className="bs-panel-title">Your Fleet</div>
-            {SHIP_DEFS.map((def, idx) => {
-              const placed = placedShips.find(s=>s.name===def.name);
-              return (
+            {shipDefs.map((def,idx)=>{
+              const p=placed.find(s=>s.name===def.name);
+              return(
                 <div key={def.name}
-                  className={`bs-ship-selector ${selectedShip===idx?'selected':''} ${placed?'placed':''}`}
-                  onClick={() => { if (!placed) { setSelectedShip(idx); } }}>
-                  <div className="bs-sel-ship">
-                    <ShipSprite name={def.name} size={def.size} horiz={true} cellSize={28}/>
+                  className={`bs-sel${selShip===idx?' selected':''}${p?' placed':''}`}
+                  onClick={()=>{if(!p)setSelShip(idx);}}>
+                  <div className="bs-sel-sprite">
+                    <ShipSprite name={def.name} size={Math.min(def.size,5)} horiz={true} cs={22}/>
                   </div>
                   <div className="bs-sel-info">
                     <span className="bs-sel-name">{def.name}</span>
-                    <span className="bs-sel-size">{def.size} cells</span>
+                    <span className="bs-sel-sz">{def.size==='1'?'1×1':`${def.size} cells`}</span>
                   </div>
-                  {placed
-                    ? <span className="bs-placed-badge">✓</span>
-                    : selectedShip===idx && <span className="bs-sel-badge">Selected</span>}
+                  {p?<span className="bs-check">✓</span>:selShip===idx&&<span className="bs-sel-tag">Active</span>}
                 </div>
               );
             })}
-
-            <div className="bs-panel-actions">
-              <button className="bs-rotate-btn" onClick={() => { sndRotate(); setShipHoriz(h=>!h); }}>
-                ↻ {shipHoriz ? 'Horizontal' : 'Vertical'}
+            <div className="bs-panel-btns">
+              <button className="bs-btn-rotate" onClick={()=>{sndRotate();setHoriz(h=>!h);}}>
+                ↻ {horiz?'Horizontal':'Vertical'}
               </button>
-              <button className="bs-shuffle-btn" onClick={handleShuffle}>🔀 Random</button>
+              <button className="bs-btn-shuffle" onClick={shuffle}>🔀 Random</button>
             </div>
-
             <button
-              className={`bs-ready-btn ${placedShips.length===SHIP_DEFS.length?'ready':''} ${isReady?'confirmed':''}`}
-              disabled={placedShips.length!==SHIP_DEFS.length||isReady}
+              className={`bs-ready-btn${placed.length===shipDefs.length?' can-ready':''}${isReady?' confirmed':''}`}
+              disabled={placed.length!==shipDefs.length||isReady}
               onClick={handleReady}>
-              {isReady ? '✓ Ready! Waiting...' : placedShips.length===SHIP_DEFS.length ? 'Ready!' : `Place ${SHIP_DEFS.length-placedShips.length} more ship${SHIP_DEFS.length-placedShips.length!==1?'s':''}…`}
+              {isReady?'✓ Waiting for opponent…':placed.length===shipDefs.length?'✅ Ready!':
+                `Place ${shipDefs.length-placed.length} more…`}
             </button>
           </div>
         </div>
@@ -369,121 +312,100 @@ export default function BattleshipGame({
     );
   }
 
-  // ── Playing phase ────────────────────────────────────────────────────────────
-  const curPlayer = gameState.players?.[gameState.currentPlayerIndex];
+  // ── PLAYING ──────────────────────────────────────────────────────────────────
+  const curPlayer=gameState.players?.[gameState.currentPlayerIndex];
 
-  const renderGrid = (isMyBoard) => {
-    const shots    = isMyBoard ? myData.myShots   : myData.oppShots;
-    const ships    = isMyBoard ? myData.myShips   : myData.oppSunkShips;
-    const myBoardExplosions = explosions.filter(e=>e.board===(isMyBoard?'my':'opp'));
+  const renderGrid=(isMine)=>{
+    const shots  =isMine?myData.myShots:myData.oppShots;
+    const ships  =isMine?myData.myShips:myData.oppSunkShips;
+    const exps   =explosions.filter(e=>e.board===(isMine?'my':'opp'));
 
-    return (
-      <div className="bs-grid-container">
-        <div className="bs-grid-title">{isMyBoard ? 'Your Board' : "Opponent's Board"}</div>
-        <div className="bs-grid-wrap" style={{position:'relative'}}>
-          <div className="bs-grid" style={{'--cs':`${cellSize}px`,'--size':SIZE}}>
+    return(
+      <div className="bs-board-wrap">
+        <div className={`bs-board-title${isMine?'':' opp-title'}`}>
+          {isMine?'Your Board':"Opponent's Board"}
+        </div>
+        <div className="bs-grid-outer" style={{'--cs':`${CS}px`,'--sz':SIZE}}>
+          <div className="bs-headers-row">
             <div className="bs-corner"/>
-            {COLS.map(c=><div key={c} className="bs-col-header">{c}</div>)}
-            {Array.from({length:SIZE}).map((_,r)=>(
-              <React.Fragment key={r}>
-                <div className="bs-row-header">{ROWS[r]}</div>
-                {Array.from({length:SIZE}).map((_,c)=>{
-                  const shot = shots.find(s=>s.row===r&&s.col===c);
-                  const ship = ships.find(s=>s.cells?.some(([sr,sc])=>sr===r&&sc===c));
-                  const canShoot = !isMyBoard && isMyTurn && !shot;
-                  return (
-                    <div key={c}
-                      className={`bs-cell ${shot?.hit?'hit':''} ${shot&&!shot.hit?'miss':''} ${canShoot?'targetable':''} ${ship?'sunk-reveal':''}`}
-                      onClick={()=>canShoot&&handleShoot(r,c)}
-                      onMouseEnter={()=>canShoot&&setHoverCell([r,c])}
-                      onMouseLeave={()=>setHoverCell(null)}>
-                      {shot?.hit && <div className="bs-hit-marker">✦</div>}
-                      {shot&&!shot.hit && <div className="bs-miss-marker">○</div>}
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+            {COLS.map(c=><div key={c} className="bs-col-hdr">{c}</div>)}
           </div>
+          <div className="bs-body-row">
+            <div className="bs-row-hdrs">
+              {ROWS.map(r=><div key={r} className="bs-row-hdr">{r}</div>)}
+            </div>
+            <div className="bs-grid-cells" style={{position:'relative'}}>
+              {Array.from({length:SIZE}).map((_,r)=>(
+                <div key={r} className="bs-row">
+                  {Array.from({length:SIZE}).map((_,c)=>{
+                    const shot=shots.find(s=>s.row===r&&s.col===c);
+                    const canFire=!isMine&&isMyTurn&&!shot;
+                    return(
+                      <div key={c}
+                        className={`bs-cell${shot?.hit?' hit':''}${shot&&!shot.hit?' miss':''}${canFire?' fire':''}`}
+                        onClick={()=>canFire&&shoot(r,c)}
+                        onMouseEnter={()=>canFire&&setHover([r,c])}
+                        onMouseLeave={()=>setHover(null)}>
+                        {shot?.hit&&<div className="bs-hit">✦</div>}
+                        {shot&&!shot.hit&&<div className="bs-miss">○</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
 
-          {/* Ship overlays on my board */}
-          {isMyBoard && myData.myShips.map(ship => {
-            if (!ship.cells?.length) return null;
-            const [r0,c0] = ship.cells[0];
-            return (
-              <div key={ship.name} className={`bs-ship-overlay ${ship.sunk?'sunk':''}`}
-                style={{
-                  position:'absolute',
-                  top:(r0+1)*cellSize+2, left:(c0+1)*cellSize+2,
-                  width:ship.horiz?ship.size*cellSize-4:cellSize-4,
-                  height:ship.horiz?cellSize-4:ship.size*cellSize-4,
-                  pointerEvents:'none',
-                }}>
-                <ShipSprite name={ship.name} size={ship.size} horiz={ship.horiz} cellSize={cellSize-4} sunk={ship.sunk}/>
-              </div>
-            );
-          })}
+              {/* Ship sprites */}
+              {ships.map(ship=>{
+                if(!ship.cells?.length) return null;
+                const [r0,c0]=ship.cells[0];
+                return(
+                  <div key={ship.name} className={`bs-sprite-overlay${ship.sunk?' sunk':''}`} style={{
+                    top:r0*CS, left:c0*CS,
+                    width:ship.horiz?ship.size*CS:CS,
+                    height:ship.horiz?CS:ship.size*CS,
+                  }}>
+                    <ShipSprite name={ship.name} size={ship.size} horiz={ship.horiz} cs={CS} sunk={ship.sunk}/>
+                  </div>
+                );
+              })}
 
-          {/* Sunk opp ships revealed */}
-          {!isMyBoard && myData.oppSunkShips.map(ship => {
-            if (!ship.cells?.length) return null;
-            const [r0,c0] = ship.cells[0];
-            return (
-              <div key={ship.name} className="bs-ship-overlay sunk"
-                style={{
-                  position:'absolute',
-                  top:(r0+1)*cellSize+2, left:(c0+1)*cellSize+2,
-                  width:ship.horiz?ship.size*cellSize-4:cellSize-4,
-                  height:ship.horiz?cellSize-4:ship.size*cellSize-4,
-                  pointerEvents:'none',
-                }}>
-                <ShipSprite name={ship.name} size={ship.size} horiz={ship.horiz} cellSize={cellSize-4} sunk={true}/>
-              </div>
-            );
-          })}
-
-          {/* Explosions */}
-          {myBoardExplosions.map(exp => (
-            <Explosion key={exp.id}
-              x={exp.col*cellSize + cellSize/2 + cellSize}
-              y={exp.row*cellSize + cellSize/2 + cellSize}
-              onDone={()=>removeExplosion(exp.id)}/>
-          ))}
+              {/* Explosions */}
+              {exps.map(e=>(
+                <Explosion key={e.id}
+                  x={e.col*CS+CS/2} y={e.row*CS+CS/2}
+                  onDone={()=>rmExp(e.id)}/>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
   };
 
-  // Ship status
-  const myShipStatus = myData.myShips.map(s => ({
-    name: s.name,
-    sunk: s.sunk,
-    color: SHIP_DEFS.find(d=>d.name===s.name)?.color||'#888',
-  }));
-  const oppSunkCount = myData.oppSunkShips.filter(s=>s.sunk).length;
-
-  return (
+  return(
     <div className="bs-game">
-      <div className={`bs-turn-banner ${isMyTurn?'my-turn':'opp-turn'}`}>
-        {isMyTurn ? '🎯 Your Turn — Click a cell on the right board' : `⏳ ${curPlayer?.name}'s turn`}
+      <div className={`bs-turn-bar${isMyTurn?' my':''}` }>
+        {isMyTurn?'🎯 Your Turn — Click the right board':'⏳ '+curPlayer?.name+"'s turn"}
+        {gameState.settings?.continuousFire&&isMyTurn&&<span className="bs-fire-badge">🔥 Continuous Fire</span>}
       </div>
 
-      <div className="bs-play-layout">
+      <div className="bs-play-row">
         {renderGrid(true)}
+        <div className="bs-divider"/>
         {renderGrid(false)}
       </div>
 
-      <div className="bs-status-row">
-        <div className="bs-fleet-status">
-          <span className="bs-status-label">Your Fleet:</span>
-          {myShipStatus.map(s=>(
-            <span key={s.name} className={`bs-ship-pip ${s.sunk?'sunk':''}`}
-              style={{'--sc':s.color}} title={s.name}/>
+      <div className="bs-status">
+        <div className="bs-fleet">
+          <span className="bs-st-lbl">Your Fleet</span>
+          {myData.myShips.map(s=>(
+            <div key={s.name} className={`bs-pip${s.sunk?' sunk':''}`}
+              style={{'--sc':getColor(s.name)}} title={s.name}/>
           ))}
         </div>
-        <div className="bs-fleet-status">
-          <span className="bs-status-label">Sunk:</span>
-          <span className="bs-sunk-count">{oppSunkCount} / {SHIP_DEFS.length}</span>
+        <div className="bs-fleet">
+          <span className="bs-st-lbl">Sunk</span>
+          <span className="bs-sunk">{myData.oppSunkShips.filter(s=>s.sunk).length} / {shipDefs.length}</span>
         </div>
       </div>
     </div>

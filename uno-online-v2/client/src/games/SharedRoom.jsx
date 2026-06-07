@@ -62,11 +62,13 @@ export const GAME_LIST = [
   },
   {
     id: 'battleship', name: 'Battleship', emoji: '🚢',
-    description: "Sink all of your opponent's ships to win!",
+    description: "Place your fleet and sink your opponent's ships to win!",
     players: '2', minPlayers: 2, maxPlayers: 2,
     settings: [
-      { key:'gridSize',   label:'Grid Size',   type:'chips',  default:10, options:[8,10], desc:'Size of the battle grid' },
-      { key:'showMisses', label:'Show Misses', type:'toggle', default:true, desc:'Show miss markers on the opponent grid' },
+      { key:'boardSize',      label:'Board Size',      type:'chips',  default:10,    options:[10,12,15], desc:'Grid dimensions' },
+      { key:'shipCount',      label:'Ships',           type:'chips',  default:5,     options:[5,6,7,8],  desc:'Ships per player' },
+      { key:'includeBoat',    label:'Boat (1×1)',      type:'toggle', default:false, desc:'Add a tiny 1×1 boat ship' },
+      { key:'continuousFire', label:'Continuous Fire', type:'toggle', default:false, desc:'Keep firing after a hit' },
     ],
   },
   {
@@ -344,7 +346,7 @@ export function WaitingRoom({
     <div className="waiting-room">
       <div className="waiting-card">
         <div className="waiting-header">
-          <img src="/logo.png" alt="Zenplex" className="zen-logo" />
+          <div className="zen-logo-small">ZG</div>
           <h2>Game Lobby</h2>
           <p className="waiting-sub">{gameState.players.length} / {gameState.maxPlayers ?? 4} players</p>
         </div>
