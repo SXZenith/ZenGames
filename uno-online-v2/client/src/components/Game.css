@@ -89,9 +89,16 @@
   max-width: 900px;
   margin: 0 auto;
   gap: 10px;
-  overflow-x: hidden; /* never scroll sideways */
+  overflow-x: hidden;
   box-sizing: border-box;
+  background: inherit; /* inherits from theme class */
 }
+/* Themes set on body via a wrapper approach */
+.theme-default { --game-bg: #0f1117; }
+.theme-forest  { --game-bg: #0d1f0e; }
+.theme-ocean   { --game-bg: #061826; }
+.theme-purple  { --game-bg: #12062b; }
+.theme-crimson { --game-bg: #1a0606; }
 
 /* ===== HUD ===== */
 .hud-buttons { position:fixed; top:14px; right:14px; display:flex; gap:8px; z-index:200; }
@@ -245,7 +252,7 @@
 
 /* ===== MY HAND ===== */
 .my-hand-area {
-  background:var(--surface); border:1px solid var(--border); border-radius:18px;
+  position: relative; background:var(--surface); border:1px solid var(--border); border-radius:18px;
   padding:42px 12px 20px; margin-top:auto; overflow:hidden; position:relative;
 }
 .hand-label {
@@ -255,7 +262,7 @@
 .hand-count { color:var(--text); }
 .uno-warn { color:#ff3b52; font-weight:800; margin-left:8px; animation:glow-red 1s infinite; }
 @keyframes glow-red { 0%,100%{text-shadow:0 0 6px rgba(255,59,82,.4)} 50%{text-shadow:0 0 16px rgba(255,59,82,.9)} }
-.drawing-hint { color:var(--yellow); font-size:.78rem; margin-left:8px; font-weight:700; }
+.drawing-hint { color:var(--yellow); font-size:.78rem; margin-left:20px; margin-right:20px; font-weight:700; }
 
 /* ===== HAND FAN =====
    Cards sit at bottom:8px.
@@ -620,19 +627,23 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: var(--text-muted);
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
 }
 .hand-stat-val {
-  color: var(--text);
-  font-size: 0.82rem;
-}
-.score-stat {
   color: #4cc9f0;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
+.score-stat { color: #4cc9f0; }
 .hand-stat-div {
-  color: var(--border);
-  font-size: 0.9rem;
+  color: rgba(255,255,255,0.15);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 4px;
 }
 
 
@@ -782,77 +793,296 @@ html, body {
   50%      { opacity: 0.65; }
 }
 /* ═══ TABLE THEMES ═══ */
-body { transition: background 0.4s ease; }
-
-.theme-default { background: #0f1117; }
-.theme-forest  { background: #0d1f0e; }
-.theme-ocean   { background: #061826; }
-.theme-purple  { background: #12062b; }
-.theme-crimson { background: #1a0606; }
-
-/* Apply theme to body too via JS isn't needed — .game fills 100vh */
-.theme-default, .theme-forest, .theme-ocean, .theme-purple, .theme-crimson {
-  min-height: 100vh;
-  transition: background 0.4s ease;
+.theme-default::before,.theme-black::before,
+.theme-ocean::before,.theme-forest::before,.theme-purple::before,
+.theme-pink::before,.theme-rose::before,.theme-powder::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; transition: background 0.4s ease;
 }
+.theme-default::before { background: #0f1117; }
+.theme-black::before   { background: #000000; }
+.theme-ocean::before   { background: #061826; }
+.theme-forest::before  { background: #0a1f0b; }
+.theme-purple::before  { background: #12062b; }
+.theme-pink::before    { background: #e6bfd1; }
+.theme-rose::before    { background: #1a0610; }
+.theme-powder::before  { background: #1ce0e5; }
 
-/* ═══ HAND TOOLS (sort + theme) ═══ */
-.hand-tools {
+/* White theme needs dark text adjustments */
+
+
+/* ═══ HAND LABEL & TOOLS ═══ */
+.hand-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-left: auto;
+  gap: 8px;
+  padding: 0 8px 8px 4px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.sort-btn {
+
+
+
+
+/* ── Right-side tools ── */
+.hand-tools {
+  display: flex; align-items: center; gap: 6px; margin-left: auto; margin-right: 30px; flex-shrink: 0;
+}
+
+/* ── Unified tool button base ── */
+.sort-btn, .customize-btn {
+  height: 22px; width: 22px;
   background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  padding: 3px 8px;
-  font-size: 0.8rem;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 50%;
+  padding: 0;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
   color: var(--text-muted);
-  line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
-.sort-btn:hover { background: rgba(255,255,255,0.12); }
+.sort-btn:hover, .customize-btn:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3); }
 .sort-btn.active {
-  background: rgba(76,201,240,0.15);
-  border-color: rgba(76,201,240,0.4);
+  background: rgba(76,201,240,0.2);
+  border-color: rgba(76,201,240,0.5);
   color: #4cc9f0;
 }
-
-.theme-picker {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 4px;
-  padding-left: 8px;
-  border-left: 1px solid rgba(255,255,255,0.08);
+.tool-group {
+  display: flex; gap: 1px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px; padding: 2px;
 }
-
-.theme-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--tc);
-  border: 1.5px solid rgba(255,255,255,0.2);
+.card-theme-btn {
+  height: 20px;
+  background: none; border: none;
+  border-radius: 4px; padding: 0 7px;
+  font-size: 0.68rem; font-weight: 700;
   cursor: pointer;
-  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
-  padding: 0;
+  transition: background 0.12s, color 0.12s;
+  color: var(--text-muted);
+  display: inline-flex; align-items: center; justify-content: center;
 }
-.theme-dot:hover { transform: scale(1.2); border-color: rgba(255,255,255,0.5); }
-.theme-dot.active {
-  transform: scale(1.25);
-  border-color: #fff;
-  box-shadow: 0 0 6px rgba(255,255,255,0.4);
+.card-theme-btn:hover  { background: rgba(255,255,255,0.1); color: var(--text); }
+.card-theme-btn.active { background: rgba(76,201,240,0.2); color: #4cc9f0; }
+
+/* Theme dots */
+.theme-picker {
+  display: flex; align-items: center; gap: 4px; flex-wrap: nowrap;
+  padding-left: 8px; border-left: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+.theme-dot {
+  width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0;
+  background: var(--tc); border: 1.5px solid rgba(255,255,255,0.25);
+  cursor: pointer; padding: 0;
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.theme-dot:hover  { transform: scale(1.25); border-color: rgba(255,255,255,0.5); }
+.theme-dot.active { transform: scale(1.3); border-color: #fff; box-shadow: 0 0 5px rgba(255,255,255,0.35); }
+
+/* Card themes handled via Card.jsx COLOR_MAPS */
+
+/* ═══ CARD ANIMATIONS ═══ */
+
+/* ── Winning card zoom ── */
+@keyframes win-card-zoom {
+  0%   { transform: scale(1) translateY(0) rotate(0deg); z-index: 1000; }
+  20%  { transform: scale(1.6) translateY(-30px) rotate(-4deg); z-index: 1000; }
+  50%  { transform: scale(1.8) translateY(-40px) rotate(3deg); z-index: 1000;
+         filter: drop-shadow(0 0 24px rgba(255,217,61,0.9)) drop-shadow(0 0 48px rgba(255,217,61,0.5)); }
+  80%  { transform: scale(1.7) translateY(-36px) rotate(-2deg); z-index: 1000; }
+  100% { transform: scale(1.6) translateY(-32px) rotate(0deg); z-index: 1000; }
+}
+.discard-area.win-card-anim .uno-card {
+  animation: win-card-zoom 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  position: relative;
+  z-index: 1000;
 }
 
-/* Make hand-label a bit taller to fit the tools row */
-.hand-label {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding-bottom: 6px;
+/* ── Flying card (deck → hand) ── */
+@keyframes fly-card {
+  0%   {
+    left: var(--fx); top: var(--fy);
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  60%  {
+    transform: translate(-50%, -50%) scale(0.9) rotate(-8deg);
+    opacity: 1;
+  }
+  100% {
+    left: var(--tx); top: var(--ty);
+    transform: translate(-50%, -50%) scale(0.75) rotate(5deg);
+    opacity: 0;
+  }
+}
+.flying-card {
+  position: fixed;
+  pointer-events: none;
+  z-index: 900;
+  animation: fly-card 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.flying-card .uno-card {
+  width: 70px;
+  height: 105px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+}
+
+/* ── Card draw animation (single card drawn) ── */
+@keyframes card-draw-in {
+  0%   { opacity: 0; transform: translateY(12px) scale(0.85); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.hand-fan-item.card-draw-in {
+  animation: card-draw-in 0.25s ease forwards;
+}
+
+/* ── Deal animation (all cards dealt at game start) ── */
+@keyframes card-deal-in {
+  0%   { opacity: 0; transform: translateY(-80px) scale(0.5) rotate(-12deg); }
+  70%  { opacity: 1; transform: translateY(4px) scale(1.04) rotate(1deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+}
+.hand-fan-item.card-deal-in {
+  animation: card-deal-in 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+/* ═══ CUSTOMIZE POPUP ═══ */
+.customize-popup {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(320px, calc(100vw - 32px));
+  background: #111827;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 16px;
+  z-index: 500;
+  box-shadow: 0 -8px 48px rgba(0,0,0,0.8);
+  animation: pop-up 0.18s cubic-bezier(0.34,1.4,0.64,1);
+}
+@keyframes pop-up {
+  from { opacity:0; transform: translateY(10px) scale(0.95); }
+  to   { opacity:1; transform: translateY(0) scale(1); }
+}
+.cp-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.cp-title { font-weight: 800; font-size: 0.82rem; color: var(--text); }
+.cp-close {
+  background: rgba(255,255,255,0.07); border: none; border-radius: 6px;
+  color: var(--text-muted); width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 0.7rem; transition: background 0.15s;
+}
+.cp-close:hover { background: rgba(255,255,255,0.14); color: var(--text); }
+
+.cp-section { margin-bottom: 12px; }
+.cp-section:last-child { margin-bottom: 0; }
+.cp-label {
+  font-size: 0.62rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 1px;
+  color: var(--text-muted); margin-bottom: 6px;
+}
+.cp-dots { display: flex; gap: 5px; flex-wrap: wrap; }
+.cp-row  { display: flex; gap: 4px; flex-wrap: wrap; }
+.cp-chip {
+  height: 24px; padding: 0 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px; color: var(--text-muted);
+  font-size: 0.7rem; font-weight: 700;
+  cursor: pointer; transition: all 0.12s;
+  display: flex; align-items: center;
+}
+.cp-chip:hover  { background: rgba(255,255,255,0.1); color: var(--text); }
+.cp-chip.active { background: rgba(76,201,240,0.18); border-color: rgba(76,201,240,0.4); color: #4cc9f0; }
+
+/* ═══ FELT TEXTURES ═══ */
+/* felt texture removed */
+
+/* ═══ CARD BACK DESIGNS ═══ */
+/* The .card-back uses --card-color and .back-inner is the inner area */
+/* All back designs recolor the card-back background and overlay content */
+
+/* Classic — default dark with UNO text, no extra CSS needed */
+
+/* Stripes */
+.cardback-stripes .card-back {
+  background: #1a1a2e !important;
+}
+.cardback-stripes .card-back .back-inner {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(76,201,240,0.25) 0px, rgba(76,201,240,0.25) 5px,
+    rgba(76,201,240,0.05) 5px, rgba(76,201,240,0.05) 14px
+  ) !important;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cardback-stripes .card-back .back-stripes { display: none; }
+
+/* Dots */
+.cardback-dots .card-back {
+  background: #1a1a2e !important;
+}
+.cardback-dots .card-back .back-inner {
+  background-image: radial-gradient(circle, rgba(76,201,240,0.55) 1.8px, transparent 1.8px) !important;
+  background-size: 11px 11px !important;
+  background-color: transparent !important;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cardback-dots .card-back .back-dots { display: none; }
+
+/* Stars */
+.cardback-stars .card-back {
+  background: #1a1a2e !important;
+}
+.cardback-stars .card-back .back-inner {
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.cardback-stars .card-back .back-stars {
+  font-size: 1rem;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  color: rgba(76,201,240,0.7);
+  letter-spacing: 2px;
+  line-height: 1;
+  text-align: center;
+  padding: 4px;
+}
+
+/* Minimal */
+.cardback-minimal .card-back {
+  background: #0d0d14 !important;
+}
+.cardback-minimal .card-back .back-inner {
+  background: transparent !important;
+  border: 2px solid rgba(76,201,240,0.35);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.cardback-minimal .card-back .back-minimal {
+  width: 44px; height: 44px;
+  border: 2px solid rgba(76,201,240,0.6);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cardback-minimal .card-back .back-logo { display: none; }
+
+.customize-backdrop {
+  position: fixed; inset: 0; z-index: 499;
+}
+
+.customize-btn.active {
+  background: rgba(200,64,255,0.2);
+  border-color: rgba(200,64,255,0.5);
+  color: #c840ff;
 }

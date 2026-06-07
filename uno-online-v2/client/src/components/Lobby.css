@@ -40,10 +40,18 @@
 .zen-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.9rem; letter-spacing: 2px;
-  background: linear-gradient(135deg, #ff3b52, #ffd93d);
+  background: linear-gradient(180deg, #2c41aa, #7d92ff);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
   line-height: 1;
 }
+
+.zen-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px; /* optional, keeps the rounded square look */
+  object-fit: contain;
+}
+
 .zen-sub {
   font-size: 0.72rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 1px;
@@ -319,8 +327,8 @@
 /* ── Avatar Picker ── */
 .avatar-picker {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
   padding: 4px 0;
 }
 .avatar-option {

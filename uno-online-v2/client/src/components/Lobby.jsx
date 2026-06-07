@@ -44,10 +44,10 @@ export default function Lobby({ onCreateRoom, onJoinRoom, error, connected, auto
     <div className="lobby">
       <div className="lobby-card">
         <div className="lobby-logo">
-          <div className="zen-badge">ZG</div>
+          <img src="/logo.png" alt="Zenplex" className="zen-logo" />
           <div>
-            <div className="zen-title">ZenGames</div>
-            <div className="zen-sub">Online Multiplayer</div>
+            <div className="zen-title">Zenplex</div>
+
           </div>
         </div>
 

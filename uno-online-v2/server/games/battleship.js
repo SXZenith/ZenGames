@@ -1,172 +1,173 @@
-// server/games/battleship.js
 'use strict';
 
 const meta = {
   id: 'battleship', name: 'Battleship', emoji: '🚢',
-  description: 'Place your fleet and sink your opponent\'s ships!',
+  description: "Place your fleet and sink your opponent's ships!",
   players: '2', minPlayers: 2, maxPlayers: 2,
-  settings: [
-    { key: 'gridSize', label: 'Grid Size', type: 'chips', default: 10,
-      options: [8, 10], desc: '8×8 or 10×10 grid' },
-    { key: 'showMisses', label: 'Show Misses', type: 'toggle', default: true,
-      desc: 'Display missed shots on the board' },
-  ],
+  settings: [],
 };
 
-const SHIPS_10 = [
-  { name: 'Carrier',    size: 5 },
-  { name: 'Battleship', size: 4 },
-  { name: 'Cruiser',    size: 3 },
-  { name: 'Submarine',  size: 3 },
-  { name: 'Destroyer',  size: 2 },
+const SHIP_DEFS = [
+  { name: 'Carrier',    size: 5, label: 'Carrier (5)' },
+  { name: 'Battleship', size: 4, label: 'Battleship (4)' },
+  { name: 'Cruiser',    size: 3, label: 'Cruiser (3)' },
+  { name: 'Submarine',  size: 3, label: 'Submarine (3)' },
+  { name: 'Destroyer',  size: 2, label: 'Destroyer (2)' },
 ];
-const SHIPS_8 = [
-  { name: 'Battleship', size: 4 },
-  { name: 'Cruiser',    size: 3 },
-  { name: 'Submarine',  size: 3 },
-  { name: 'Destroyer',  size: 2 },
-];
+const SIZE = 10;
 
-function emptyGrid(size) {
-  return Array.from({ length: size }, () => Array(size).fill(null));
+function emptyGrid() {
+  return Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
 }
 
-function autoPlace(ships, size) {
-  const grid = emptyGrid(size);
-  const placed = [];
-  for (const ship of ships) {
-    let placed_ok = false;
-    let attempts = 0;
-    while (!placed_ok && attempts < 200) {
-      attempts++;
+function autoPlace() {
+  const grid = emptyGrid();
+  const ships = [];
+  for (const def of SHIP_DEFS) {
+    let ok = false, attempts = 0;
+    while (!ok && attempts++ < 500) {
       const horiz = Math.random() < 0.5;
-      const row = Math.floor(Math.random() * (horiz ? size : size - ship.size + 1));
-      const col = Math.floor(Math.random() * (horiz ? size - ship.size + 1 : size));
+      const row = Math.floor(Math.random() * (horiz ? SIZE : SIZE - def.size + 1));
+      const col = Math.floor(Math.random() * (horiz ? SIZE - def.size + 1 : SIZE));
       const cells = [];
-      let ok = true;
-      for (let i = 0; i < ship.size; i++) {
+      let valid = true;
+      for (let i = 0; i < def.size; i++) {
         const r = horiz ? row : row + i;
         const c = horiz ? col + i : col;
-        if (grid[r][c] !== null) { ok = false; break; }
+        if (grid[r]?.[c] !== null) { valid = false; break; }
+        // check adjacency
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+          if (grid[r+dr]?.[c+dc] != null) { valid = false; break; }
+        }
+        if (!valid) break;
         cells.push([r, c]);
       }
-      if (ok) {
-        cells.forEach(([r, c]) => { grid[r][c] = ship.name; });
-        placed.push({ ...ship, cells, horiz, sunk: false });
-        placed_ok = true;
+      if (valid) {
+        cells.forEach(([r,c]) => { grid[r][c] = def.name; });
+        ships.push({ name: def.name, size: def.size, cells, horiz, sunk: false });
+        ok = true;
       }
     }
   }
-  return { grid, ships: placed };
+  return { grid, ships };
+}
+
+function validatePlacement(ships) {
+  if (ships.length !== SHIP_DEFS.length) return false;
+  const grid = emptyGrid();
+  for (const ship of ships) {
+    for (const [r,c] of ship.cells) {
+      if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return false;
+      if (grid[r][c] !== null) return false;
+      grid[r][c] = ship.name;
+    }
+  }
+  return true;
 }
 
 function createRoom(roomCode, settings = {}) {
   return {
-    roomCode,
-    gameType: 'battleship',
-    state: 'waiting',
-    size: settings.gridSize || 10,
-    boards: {},
-    currentPlayerIndex: 0,
-    players: [],
-    settings,
-    winner: null,
-    minPlayers: meta.minPlayers,
-    maxPlayers: meta.maxPlayers,
+    roomCode, gameType: 'battleship', state: 'waiting',
+    players: [], boards: {}, ready: {},
+    currentPlayerIndex: 0, winner: null,
+    settings, minPlayers: 2, maxPlayers: 2,
   };
 }
 
 function getPublicState(room) {
-  const { state, size, boards, currentPlayerIndex, players, settings, winner } = room;
-  // Build per-player view: own full board + opponent's shot-result board only
-  // boards may be empty during 'waiting' state — guard against that
   const publicBoards = {};
-  for (const p of players) {
-    const myBoard  = boards?.[p.id];
-    const oppId    = players.find(op => op.id !== p.id)?.id;
-    const oppBoard = oppId ? boards?.[oppId] : null;
-
-    publicBoards[p.id] = myBoard ? {
-      myGrid:   myBoard.grid,
-      myShips:  myBoard.ships,
-      myShots:  myBoard.shots,
-      oppShots: oppBoard ? oppBoard.shots : [],
-      oppShips: oppBoard ? oppBoard.ships.filter(s => s.sunk) : [],
-    } : {
-      myGrid: null, myShips: [], myShots: [], oppShots: [], oppShips: [],
+  for (const p of room.players) {
+    const mine = room.boards[p.id];
+    const oppId = room.players.find(op => op.id !== p.id)?.id;
+    const opp  = oppId ? room.boards[oppId] : null;
+    publicBoards[p.id] = {
+      myShips:   mine?.ships  || [],
+      myShots:   mine?.shots  || [],
+      oppShots:  opp?.shots   || [],
+      // only reveal sunk opp ships
+      oppSunkShips: opp?.ships.filter(s => s.sunk) || [],
     };
   }
-
   return {
-    gameType: 'battleship',
-    state,
-    size,
-    publicBoards,
-    currentPlayerIndex,
-    players,
-    settings,
-    winner,
-    minPlayers: meta.minPlayers,
-    maxPlayers: meta.maxPlayers,
+    gameType: 'battleship', state: room.state,
+    publicBoards, currentPlayerIndex: room.currentPlayerIndex,
+    players: room.players.map(p => ({
+      id: p.id, name: p.name, score: p.score||0,
+      avatar: p.avatar||'penguin', isConnected: p.isConnected,
+      ready: !!room.ready[p.id],
+    })),
+    winner: room.winner, settings: room.settings,
+    minPlayers: 2, maxPlayers: 2, size: SIZE,
   };
 }
 
 function handleAction(room, playerId, action, payload) {
-  if (room.state !== 'playing') return;
-  const curPlayer = room.players[room.currentPlayerIndex];
-  if (curPlayer.id !== playerId) return;
+  // Ship placement
+  if (action === 'placeShips') {
+    const { ships } = payload;
+    if (!validatePlacement(ships)) return;
+    const grid = emptyGrid();
+    ships.forEach(s => s.cells.forEach(([r,c]) => { grid[r][c] = s.name; }));
+    room.boards[playerId] = { grid, ships: ships.map(s=>({...s, sunk:false})), shots: [] };
+    return;
+  }
 
-  if (action === 'shoot') {
+  if (action === 'ready') {
+    if (!room.boards[playerId]) return; // must place ships first
+    room.ready[playerId] = true;
+    // Both ready → start
+    if (room.players.every(p => room.ready[p.id])) {
+      room.state = 'playing';
+      room.currentPlayerIndex = Math.floor(Math.random() * 2);
+    }
+    return;
+  }
+
+  if (action === 'shoot' && room.state === 'playing') {
+    const cur = room.players[room.currentPlayerIndex];
+    if (cur.id !== playerId) return;
     const { row, col } = payload;
     const oppId = room.players.find(p => p.id !== playerId)?.id;
     if (!oppId) return;
     const oppBoard = room.boards[oppId];
-    if (oppBoard.shots.find(s => s.row === row && s.col === col)) return; // already shot
+    if (oppBoard.shots.find(s => s.row===row && s.col===col)) return; // duplicate
 
-    const cellValue = oppBoard.grid[row]?.[col];
-    const hit = cellValue !== null;
-    oppBoard.shots.push({ row, col, hit, shipName: hit ? cellValue : null });
+    const cellVal = oppBoard.grid[row]?.[col];
+    const hit = cellVal !== null;
+    oppBoard.shots.push({ row, col, hit, shipName: hit ? cellVal : null });
 
     if (hit) {
-      // check if ship sunk
-      const ship = oppBoard.ships.find(s => s.name === cellValue);
+      const ship = oppBoard.ships.find(s => s.name === cellVal);
       if (ship) {
-        const allHit = ship.cells.every(([r,c]) => oppBoard.shots.find(s=>s.row===r&&s.col===c&&s.hit));
+        const allHit = ship.cells.every(([r,c]) =>
+          oppBoard.shots.some(s => s.row===r && s.col===c && s.hit)
+        );
         if (allHit) ship.sunk = true;
       }
-      // check win
-      const allSunk = oppBoard.ships.every(s => s.sunk);
-      if (allSunk) {
+      if (oppBoard.ships.every(s => s.sunk)) {
         room.state = 'finished';
-        room.winner = curPlayer.name;
-        curPlayer.score = (curPlayer.score || 0) + 1;
+        room.winner = cur.name;
+        cur.score = (cur.score||0) + 1;
         return;
       }
-      // hit → same player shoots again
+      // Hit → same player goes again (real battleship rules)
     } else {
-      // miss → next player
-      room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
+      room.currentPlayerIndex = (room.currentPlayerIndex + 1) % 2;
     }
   }
 }
 
 function startGame(room) {
-  room.state = 'playing';
+  room.state = 'placing'; // placement phase first
+  room.boards = {};
+  room.ready = {};
   room.currentPlayerIndex = 0;
   room.winner = null;
-  room.boards = {};
-  const size = room.settings.gridSize || 10;
-  room.size = size;
-  const shipDefs = size === 8 ? SHIPS_8 : SHIPS_10;
-  for (const p of room.players) {
-    const { grid, ships } = autoPlace(shipDefs, size);
-    room.boards[p.id] = { grid, ships, shots: [] };
-  }
 }
 
 function rematch(room) {
   const fresh = createRoom(room.roomCode, room.settings);
-  fresh.players = room.players.map(p => ({ ...p, score: p.score || 0 }));
+  fresh.players = room.players.map(p => ({ ...p, score: p.score||0 }));
   return fresh;
 }
 

@@ -70,8 +70,14 @@ export default function Game({
   const [unoTimer,        setUnoTimer]        = useState(null);
   const [toastMsg,        setToastMsg]        = useState('');
   const [actionMsg,       setActionMsg]       = useState(null);
-  const [sortMode,        setSortMode]        = useState('none'); // 'none' | 'color' | 'value'
-  const [tableTheme,      setTableTheme]      = useState(() => localStorage.getItem('zg-theme') || 'default');
+  const [newCardIds,      setNewCardIds]      = useState(new Set()); // cards to animate in
+  const [winCardAnim,     setWinCardAnim]     = useState(false);     // winning card zoom
+  const [dealAnim,        setDealAnim]        = useState(false);     // deal animation
+  const [sortMode,        setSortMode]        = useState('none');
+  const [tableTheme,      setTableTheme]      = useState('default');
+  const [cardTheme,       setCardTheme]       = useState('default');
+  const [cardBack,        setCardBack]        = useState('classic');
+  const [showCustomize,   setShowCustomize]   = useState(false);
   const [showWinner,      setShowWinner]      = useState(false);
   const [showScoreboard,  setShowScoreboard]  = useState(false);
 
@@ -82,6 +88,11 @@ export default function Game({
   const prevTurnRef     = useRef(null);
   const prevLastAction  = useRef(null);
   const prevUnoVuln     = useRef(null);
+  const prevHandIdsRef  = useRef(new Set());
+  const prevStateRef    = useRef(null);
+  const deckRef         = useRef(null);
+  const handRef         = useRef(null);
+  const [flyingCards,   setFlyingCards]   = useState([]); // [{id, startX, startY}]
 
   // Auto-dismiss error toast after 3s
   useEffect(() => {
@@ -110,6 +121,42 @@ export default function Game({
     (isMyTurn && myHandSize === 1) ||  // your turn with 1 card (played skip/reverse to get here)
     (!isMyTurn && myHandSize === 1)    // not your turn, just played down to 1
   );
+
+  // ── Card draw animation: fly from deck to hand ──────────────────────────
+  useEffect(() => {
+    const currentIds = new Set((me?.hand || []).map(c => c.id));
+    const newIds = [...currentIds].filter(id => !prevHandIdsRef.current.has(id));
+    if (newIds.length > 0 && prevHandIdsRef.current.size > 0 && deckRef.current && handRef.current) {
+      const deckRect = deckRef.current.getBoundingClientRect();
+      const handRect = handRef.current.getBoundingClientRect();
+      // Fly one card per new card, staggered
+      const cards = newIds.map((id, i) => ({
+        id: id + i,
+        startX: deckRect.left + deckRect.width / 2,
+        startY: deckRect.top  + deckRect.height / 2,
+        endX:   handRect.left + handRect.width / 2,
+        endY:   handRect.top  + handRect.height / 2,
+        delay:  i * 80,
+      }));
+      setFlyingCards(cards);
+      // Hide new cards in hand briefly until fly animation lands
+      setNewCardIds(new Set(newIds));
+      setTimeout(() => {
+        setFlyingCards([]);
+        setNewCardIds(new Set());
+      }, 500 + newIds.length * 80);
+    }
+    prevHandIdsRef.current = currentIds;
+  }, [me?.hand?.length]);
+
+  // ── Deal animation: fires when game starts ───────────────────────────────
+  useEffect(() => {
+    if (gameState.state === 'playing' && prevStateRef.current === 'waiting') {
+      setDealAnim(true);
+      setTimeout(() => setDealAnim(false), 800);
+    }
+    prevStateRef.current = gameState.state;
+  }, [gameState.state]);
 
   // ── Turn sound (no flash) ─────────────────────────────────────────────────
   useEffect(() => {
@@ -190,9 +237,11 @@ export default function Game({
   useEffect(() => {
     if (gameState.state === 'finished' && !prevFinishedRef.current) {
       prevFinishedRef.current = true;
-      // Phase 1: stay on game board (2.5s)
+      // Phase 1: show winning card zoom for 1.2s, then hold
       setShowWinner(false);
       setShowScoreboard(false);
+      setWinCardAnim(true);
+      setTimeout(() => setWinCardAnim(false), 1200);
       setTimeout(() => {
         // Phase 2: show splash (3s)
         setShowWinner(true);
@@ -211,9 +260,7 @@ export default function Game({
   }, [gameState.state]);
 
   // ── Save theme to localStorage ───────────────────────────────────────────
-  useEffect(() => {
-    localStorage.setItem('zg-theme', tableTheme);
-  }, [tableTheme]);
+
 
   // ── Keep-alive ping to prevent Render from sleeping ─────────────────────
   useEffect(() => {
@@ -349,7 +396,13 @@ export default function Game({
   const opponents    = gameState.players.filter(p => p.id !== playerId);
   const topCard      = gameState.topCard;
   const currentColor = gameState.currentColor;
-  const hand         = me?.hand ?? [];
+  const rawHand      = me?.hand ?? [];
+  const COLOR_ORDER  = { red:0, yellow:1, green:2, blue:3, wild:4 };
+  const hand = sortMode === 'color'
+    ? [...rawHand].sort((a,b) => (COLOR_ORDER[a.color]??5)-(COLOR_ORDER[b.color]??5) || (parseInt(a.value)||99)-(parseInt(b.value)||99))
+    : sortMode === 'value'
+    ? [...rawHand].sort((a,b) => (parseInt(a.value)||99)-(parseInt(b.value)||99))
+    : rawHand;
 
   const playableSet = new Set();
   if (isMyTurn) {
@@ -416,7 +469,7 @@ export default function Game({
                   const rot = s * Math.min(38, fanCount*3);
                   return (
                     <div key={idx} className="opp-fan-card" style={{transform:`translateX(${tx}px) rotate(${rot}deg)`,zIndex:idx}}>
-                      <CardBack small />
+                      <CardBack small cardBack={cardBack} />
                     </div>
                   );
                 })}
@@ -467,7 +520,7 @@ export default function Game({
 
         <div className="play-area">
           <div className="deck-area">
-            <div className={deckShake?'deck-shake':''}><CardBack /></div>
+            <div ref={deckRef} className={deckShake?'deck-shake':''} style={{position:'relative', zIndex:1}}><CardBack cardBack={cardBack} /></div>
             <div className="deck-count">{gameState.deckSize} left</div>
             {/* Fixed-height slot — always reserves space, never shifts layout */}
             <div className="draw-btn-slot">
@@ -476,8 +529,8 @@ export default function Game({
                 : null}
             </div>
           </div>
-          <div className="discard-area">
-            {topCard && <UnoCard card={topCard} disabled />}
+          <div className={`discard-area ${winCardAnim ? 'win-card-anim' : ''}`}>
+            {topCard && <UnoCard card={topCard} disabled cardTheme={cardTheme} />}
           </div>
         </div>
 
@@ -519,22 +572,105 @@ export default function Game({
       {/* ── My hand: flat scrollable row ── */}
       <div className="my-hand-area">
         <div className="hand-label">
+          {/* Left: stats */}
           <div className="hand-stats">
-            <span className="hand-stat">Cards <span className="hand-stat-val">({myHandSize})</span></span>
+            <span className="hand-stat">Cards <span className="hand-stat-val">{myHandSize}</span></span>
             <span className="hand-stat-div">|</span>
-            <span className="hand-stat">Score <span className="hand-stat-val score-stat">{hand.reduce((s,c) => {
-              const n = parseInt(c.value); if (!isNaN(n)) return s+n;
-              if (c.value==='draw2'||c.value==='skip'||c.value==='reverse') return s+20;
-              if (c.color==='wild') return s+50;
-              return s;
-            }, 0)}</span></span>
+            <span className="hand-stat">
+              Score <span className="hand-stat-val score-stat">{(() => {
+                return rawHand.reduce((s,c) => {
+                  const n = parseInt(c.value); if (!isNaN(n)) return s+n;
+                  if (c.value==='draw2'||c.value==='skip'||c.value==='reverse') return s+20;
+                  if (c.color==='wild') return s+50;
+                  return s;
+                }, 0);
+              })()}</span>
+            </span>
+            {iAmVulnerable && <span className="uno-warn">⚠ Call UNO!</span>}
+            {drawingStreak && playableSet.size > 0 && <span className="drawing-hint">▲ Play it!</span>}
           </div>
-          {iAmVulnerable && <span className="uno-warn">⚠ Call UNO!</span>}
-          {drawingStreak && playableSet.size > 0 && <span className="drawing-hint">▲ Play it!</span>}
 
+          {/* Right: sort + customize */}
+          <div className="hand-tools">
+            {/* Sort by color — stays separate */}
+            <button className={`sort-btn ${sortMode==='color'?'active':''}`}
+              onClick={e => { e.stopPropagation(); setSortMode(m => m==='color'?'none':'color'); }}
+              title="Sort by color">🔀</button>
+
+            {/* Customize button */}
+            <button className={`customize-btn ${showCustomize?'active':''}`}
+              onClick={e => { e.stopPropagation(); setShowCustomize(s=>!s); }}
+              title="Customize">🎨</button>
+          </div>
+
+          {/* Customize popup */}
+          {showCustomize && (
+            <>
+            <div className="customize-backdrop" onClick={() => setShowCustomize(false)} />
+            <div className="customize-popup" onClick={e => e.stopPropagation()}>
+              <div className="cp-header">
+                <span className="cp-title">Customize</span>
+                <button className="cp-close" onClick={() => setShowCustomize(false)}>✕</button>
+              </div>
+
+              {/* Background */}
+              <div className="cp-section">
+                <div className="cp-label">Background</div>
+                <div className="cp-dots">
+                  {[
+                    {id:'default', c:'#0f1117', label:'Default'},
+                    {id:'black',   c:'#000000', label:'Black'},
+                    {id:'ocean',   c:'#061826', label:'Ocean'},
+                    {id:'forest',  c:'#0a1f0b', label:'Forest'},
+                    {id:'purple',  c:'#12062b', label:'Purple'},
+                    {id:'pink',    c:'#e6bfd1', label:'Pink'},
+                    {id:'rose',    c:'#1a0610', label:'Rose'},
+                    {id:'powder',  c:'#1ce0e5', label:'Powder'},
+                  ].map(t => (
+                    <button key={t.id}
+                      className={`theme-dot ${tableTheme===t.id?'active':''}`}
+                      style={{'--tc': t.c}}
+                      onClick={() => setTableTheme(t.id)}
+                      title={t.label} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Card Color Scheme */}
+              <div className="cp-section">
+                <div className="cp-label">Card Colors</div>
+                <div className="cp-row">
+                  {['default','dark','neon'].map(ct => (
+                    <button key={ct}
+                      className={`cp-chip ${cardTheme===ct?'active':''}`}
+                      onClick={() => setCardTheme(ct)}>
+                      {ct==='default'?'Default':ct==='dark'?'Dark':'Neon'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Card Back */}
+              <div className="cp-section">
+                <div className="cp-label">Card Back</div>
+                <div className="cp-row">
+                  {['classic','stripes','dots','stars','minimal','abstract','flow','galaxy','marble','kuromi','otter','jack','boys','venom','sage','hero','potter','dobby'].map(cb => (
+                    <button key={cb}
+                      className={`cp-chip ${cardBack===cb?'active':''}`}
+                      onClick={() => setCardBack(cb)}>
+                      {cb.charAt(0).toUpperCase()+cb.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+
+            </div>
+            </>
+          )}
         </div>
 
-        <div className="hand-fan-container">
+        <div ref={handRef} className="hand-fan-container">
           {hand.map((card, idx) => {
             const isSelected = selectedCard?.id === card.id;
             const isPlayable = playableSet.has(card.id);
@@ -542,11 +678,11 @@ export default function Game({
             return (
               <div
                 key={card.id}
-                className={`hand-fan-item ${isSelected?'selected':''} ${isPlayable&&isMyTurn?'playable':'not-playable'}`}
-                style={style}
+                className={`hand-fan-item ${isSelected?'selected':''} ${isPlayable&&isMyTurn?'playable':'not-playable'} ${newCardIds.has(card.id)?'card-draw-in':''} ${dealAnim?'card-deal-in':''}`}
+                style={{...style, animationDelay: dealAnim ? `${idx * 60}ms` : '0ms', opacity: newCardIds.has(card.id) && flyingCards.length > 0 ? 0 : 1}}
                 onClick={() => handleCardClick(card, isPlayable)}
               >
-                <UnoCard card={card} selected={isSelected} disabled={!isPlayable||!isMyTurn} />
+                <UnoCard card={card} selected={isSelected} disabled={!isPlayable||!isMyTurn} cardTheme={cardTheme} />
 
               </div>
             );
@@ -566,6 +702,18 @@ export default function Game({
 
       {toastMsg && <div className="error-toast">⚠ {toastMsg}</div>}
       {winSplashEl}
+
+      {/* Flying card animations — fixed overlay */}
+      {flyingCards.map(fc => (
+        <div key={fc.id} className="flying-card"
+          style={{
+            '--fx': `${fc.startX}px`, '--fy': `${fc.startY}px`,
+            '--tx': `${fc.endX}px`,   '--ty': `${fc.endY}px`,
+            animationDelay: `${fc.delay}ms`,
+          }}>
+          <CardBack small cardBack={cardBack} />
+        </div>
+      ))}
     </div>
   );
 }

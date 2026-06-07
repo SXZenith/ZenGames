@@ -104,11 +104,13 @@ export function defaultSettingsFor(gameId) {
 // ─────────────────────────────────────────────────────────────────────────────
 export function GamePicker({ currentGameId, settings, onChangeGame, isHost }) {
   const [localGameId,   setLocalGameId]   = useState(currentGameId);
-  const [localSettings, setLocalSettings] = useState(settings);
+  const [localSettings, setLocalSettings] = useState(settings || {});
+  const [gameOpen,      setGameOpen]      = useState(false);
+  const [settingsOpen,  setSettingsOpen]  = useState(false);
 
   useEffect(() => {
     setLocalGameId(currentGameId);
-    setLocalSettings(settings);
+    setLocalSettings(settings || {});
   }, [currentGameId]);
 
   const selectGame = (g) => {
@@ -117,6 +119,7 @@ export function GamePicker({ currentGameId, settings, onChangeGame, isHost }) {
     setLocalGameId(g.id);
     setLocalSettings(newSettings);
     onChangeGame(g.id, newSettings);
+    setGameOpen(false);
   };
 
   const updateSetting = (key, val) => {
@@ -127,66 +130,114 @@ export function GamePicker({ currentGameId, settings, onChangeGame, isHost }) {
   };
 
   const selectedGame = GAME_LIST.find(g => g.id === localGameId);
+  const activeSettings = selectedGame?.settings.filter(
+    opt => (localSettings?.[opt.key] ?? opt.default) !== opt.default
+  ) ?? [];
 
   return (
-    <div className="game-picker-section">
-      <div className="gps-label">Game</div>
-      <div className="game-picker-grid">
-        {GAME_LIST.map(g => (
-          <button key={g.id} type="button"
-            className={`game-tile ${localGameId === g.id ? 'selected' : ''} ${!isHost ? 'readonly' : ''}`}
-            onClick={() => selectGame(g)}>
-            <span className="game-tile-emoji">{g.emoji}</span>
-            <span className="game-tile-name">{g.name}</span>
-            <span className="game-tile-players">{g.players}p</span>
-          </button>
-        ))}
+    <div className="gps-wrapper">
+      {/* Game dropdown */}
+      <div className="lob-dropdown">
+        <button type="button"
+          className={`lob-drop-trigger ${!isHost ? 'readonly' : ''}`}
+          onClick={() => { if (!isHost) return; setGameOpen(o => !o); setSettingsOpen(false); }}>
+          <span className="lob-drop-selected">
+            <span className="lob-drop-emoji">{selectedGame?.emoji}</span>
+            <span className="lob-drop-name">{selectedGame?.name}</span>
+            <span className="lob-drop-players">{selectedGame?.players}p</span>
+          </span>
+          {isHost
+            ? <span className={`lob-drop-arrow ${gameOpen ? 'open' : ''}`}>▾</span>
+            : <span className="gps-readonly-label">Host only</span>}
+        </button>
+        {gameOpen && isHost && (
+          <>
+            <div className="lob-drop-backdrop" onClick={() => setGameOpen(false)} />
+            <div className="lob-drop-panel">
+              <div className="lob-game-grid">
+                {GAME_LIST.map(g => (
+                  <button key={g.id} type="button"
+                    className={`lob-game-tile ${localGameId === g.id ? 'selected' : ''}`}
+                    onClick={() => selectGame(g)}>
+                    <span className="lob-tile-emoji">{g.emoji}</span>
+                    <span className="lob-tile-name">{g.name}</span>
+                    <span className="lob-tile-players">{g.players}p</span>
+                  </button>
+                ))}
+              </div>
+              {selectedGame && <p className="lob-game-desc">{selectedGame.description}</p>}
+            </div>
+          </>
+        )}
       </div>
 
-      {selectedGame && (
-        <div className="gps-settings">
-          {selectedGame.settings.map(opt => (
-            <div key={opt.key} className="gps-row">
-              <div className="gps-label-wrap">
-                <span className="gps-name">{opt.label}</span>
-                {opt.desc && <span className="gps-desc">{opt.desc}</span>}
+      {/* Settings dropdown */}
+      {selectedGame?.settings?.length > 0 && (
+        <div className="lob-dropdown">
+          <button type="button"
+            className={`lob-drop-trigger settings-trigger ${!isHost ? 'readonly' : ''}`}
+            onClick={() => { if (!isHost) return; setSettingsOpen(o => !o); setGameOpen(false); }}>
+            <span className="lob-drop-label">
+              ⚙ Settings
+              {activeSettings.length > 0 && (
+                <span className="lob-settings-badge">{activeSettings.length} changed</span>
+              )}
+            </span>
+            {isHost
+              ? <span className={`lob-drop-arrow ${settingsOpen ? 'open' : ''}`}>▾</span>
+              : <span className="gps-readonly-label">Host only</span>}
+          </button>
+          {settingsOpen && isHost && (
+            <>
+              <div className="lob-drop-backdrop" onClick={() => setSettingsOpen(false)} />
+              <div className="lob-drop-panel settings-panel">
+                {selectedGame.settings.map(opt => (
+                  <div key={opt.key} className="lob-setting-row">
+                    <div className="lob-setting-info">
+                      <span className="lob-setting-name">{opt.label}</span>
+                      {opt.desc && <span className="lob-setting-desc">{opt.desc}</span>}
+                    </div>
+                    {opt.type === 'toggle' && (
+                      <button type="button"
+                        className={`lob-toggle ${localSettings?.[opt.key] ? 'on' : 'off'}`}
+                        onClick={() => updateSetting(opt.key, !localSettings?.[opt.key])}>
+                        {localSettings?.[opt.key] ? 'ON' : 'OFF'}
+                      </button>
+                    )}
+                    {(opt.type === 'timer' || opt.type === 'chips') && (
+                      <div className="lob-chips">
+                        {(opt.type === 'timer' ? TIMER_OPTIONS : opt.options).map(v => (
+                          <button key={v} type="button"
+                            className={`lob-chip ${localSettings?.[opt.key] === v ? 'active' : ''}`}
+                            onClick={() => updateSetting(opt.key, v)}>
+                            {opt.type === 'timer' ? (v === 0 ? 'Off' : `${v}s`) : v}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-              {opt.type === 'toggle' && (
-                <button type="button"
-                  className={`gps-toggle ${localSettings[opt.key] ? 'on' : 'off'}`}
-                  onClick={() => updateSetting(opt.key, !localSettings[opt.key])}
-                  disabled={!isHost}>
-                  {localSettings[opt.key] ? 'ON' : 'OFF'}
-                </button>
-              )}
-              {opt.type === 'timer' && (
-                <div className="gps-chips">
-                  {TIMER_OPTIONS.map(t => (
-                    <button key={t} type="button"
-                      className={`gps-chip ${localSettings[opt.key] === t ? 'active' : ''}`}
-                      onClick={() => isHost && updateSetting(opt.key, t)}
-                      disabled={!isHost}>
-                      {t === 0 ? 'Off' : `${t}s`}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {opt.type === 'chips' && (
-                <div className="gps-chips">
-                  {opt.options.map(v => (
-                    <button key={v} type="button"
-                      className={`gps-chip ${localSettings[opt.key] === v ? 'active' : ''}`}
-                      onClick={() => isHost && updateSetting(opt.key, v)}
-                      disabled={!isHost}>
-                      {v}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Active settings pills */}
+      {activeSettings.length > 0 && (
+        <div className="lob-active-settings">
+          {activeSettings.map(opt => (
+            <span key={opt.key} className="lob-active-pill">
+              {opt.label}: <strong>{
+                opt.type === 'toggle' ? (localSettings?.[opt.key] ? 'ON' : 'OFF')
+                : opt.type === 'timer' ? (localSettings?.[opt.key] === 0 ? 'Off' : `${localSettings?.[opt.key]}s`)
+                : localSettings?.[opt.key]
+              }</strong>
+            </span>
           ))}
         </div>
       )}
+
       {!isHost && <p className="gps-note">Only the host can change the game</p>}
     </div>
   );
@@ -293,7 +344,7 @@ export function WaitingRoom({
     <div className="waiting-room">
       <div className="waiting-card">
         <div className="waiting-header">
-          <div className="zen-logo-small">ZG</div>
+          <img src="/logo.png" alt="Zenplex" className="zen-logo" />
           <h2>Game Lobby</h2>
           <p className="waiting-sub">{gameState.players.length} / {gameState.maxPlayers ?? 4} players</p>
         </div>

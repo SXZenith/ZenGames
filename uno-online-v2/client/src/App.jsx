@@ -14,7 +14,7 @@ import './App.css';
 import './AppHUD.css';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
-const REACTIONS  = ['🔥','😂','😤','🎉','💀','👍'];
+const REACTIONS  = ['😂','😤','🎉','💀','👍','🩷','💩','🔪','😭','😡'];
 const CHAT_HIDE_MS = 8000;
 
 export default function App() {
