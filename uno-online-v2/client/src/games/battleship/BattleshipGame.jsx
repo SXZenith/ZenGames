@@ -13,17 +13,24 @@ const sndPlace =()=>beep(440,0.08,'square',0.1);
 const sndRotate=()=>{beep(600,0.05,'square',0.08);setTimeout(()=>beep(800,0.05,'square',0.06),60);};
 
 // ── Ship colors ───────────────────────────────────────────────────────────────
-const SHIP_COLOR={
-  Carrier:'#e63946', Battleship:'#f4a261', Cruiser:'#4cc9f0',
-  Submarine:'#06d6a0', Destroyer:'#c840ff', Boat:'#ffb3c6',
-  Cruiser2:'#7ec8e3', Cruiser3:'#a8dadc', Cruiser4:'#b5ead7',
+// 12 unique distinct colors, each ship always different
+const PALETTE=[
+  '#e63946','#f4a261','#ffd93d','#06d6a0','#4cc9f0',
+  '#c840ff','#ffb3c6','#ff6b6b','#a8dadc','#118ab2',
+  '#06d6a0','#b5838d',
+];
+// Assign colors by index so every ship always has a unique color
+const SHIP_COLOR={};
+const getColor=(name,shipDefs)=>{
+  if(!shipDefs) return '#4cc9f0';
+  const idx=shipDefs.findIndex(d=>d.name===name);
+  return PALETTE[idx>=0?idx%PALETTE.length:0];
 };
-const getColor=(name)=>SHIP_COLOR[name]||'#4cc9f0';
 
 // ── Ship SVG sprite ───────────────────────────────────────────────────────────
-function ShipSprite({name,size,horiz,cs,sunk}){
+function ShipSprite({name,size,horiz,cs,sunk,shipDefs}){
   const w=horiz?size*cs:cs, h=horiz?cs:size*cs;
-  const col=getColor(name);
+  const col=getColor(name,shipDefs||[]);
   if(size===1) return (
     <svg width={cs} height={cs} viewBox={`0 0 ${cs} ${cs}`} className={`ship-svg${sunk?' sunk':''}`}>
       <circle cx={cs/2} cy={cs/2} r={cs/2-3} fill={col} stroke="rgba(0,0,0,0.4)" strokeWidth="2"/>
@@ -274,7 +281,7 @@ export default function BattleshipGame({
           </div>
 
           {/* Panel */}
-          <div className="bs-panel">
+          <div className="bs-panel" style={{maxHeight: Math.min(shipDefs.length*52+140, 600)+'px'}}>
             <div className="bs-panel-title">Your Fleet</div>
             {shipDefs.map((def,idx)=>{
               const p=placed.find(s=>s.name===def.name);
@@ -283,7 +290,7 @@ export default function BattleshipGame({
                   className={`bs-sel${selShip===idx?' selected':''}${p?' placed':''}`}
                   onClick={()=>{if(!p)setSelShip(idx);}}>
                   <div className="bs-sel-sprite">
-                    <ShipSprite name={def.name} size={Math.min(def.size,5)} horiz={true} cs={22}/>
+                    <ShipSprite name={def.name} size={Math.min(def.size,4)} horiz={true} cs={18} shipDefs={shipDefs}/>
                   </div>
                   <div className="bs-sel-info">
                     <span className="bs-sel-name">{def.name}</span>
@@ -322,7 +329,7 @@ export default function BattleshipGame({
 
     return(
       <div className="bs-board-wrap">
-        <div className={`bs-board-title${isMine?'':' opp-title'}`}>
+        <div className={`bs-board-title${isMine?' mine-title':' opp-title'}`}>
           {isMine?'Your Board':"Opponent's Board"}
         </div>
         <div className="bs-grid-outer" style={{'--cs':`${CS}px`,'--sz':SIZE}}>
@@ -384,9 +391,8 @@ export default function BattleshipGame({
 
   return(
     <div className="bs-game">
-      <div className={`bs-turn-bar${isMyTurn?' my':''}` }>
-        {isMyTurn?'🎯 Your Turn — Click the right board':'⏳ '+curPlayer?.name+"'s turn"}
-        {gameState.settings?.continuousFire&&isMyTurn&&<span className="bs-fire-badge">🔥 Continuous Fire</span>}
+      <div className={`bs-turn-bar${isMyTurn?' my':''}`}>
+        {isMyTurn?'🎯 Your Turn':'⏳ '+curPlayer?.name+"'s turn"}
       </div>
 
       <div className="bs-play-row">
@@ -400,7 +406,7 @@ export default function BattleshipGame({
           <span className="bs-st-lbl">Your Fleet</span>
           {myData.myShips.map(s=>(
             <div key={s.name} className={`bs-pip${s.sunk?' sunk':''}`}
-              style={{'--sc':getColor(s.name)}} title={s.name}/>
+              style={{'--sc':getColor(s.name,shipDefs)}} title={s.name}/>
           ))}
         </div>
         <div className="bs-fleet">

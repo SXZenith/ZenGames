@@ -71,27 +71,30 @@
 
 /* ── Ship panel ── */
 .bs-panel {
-  display:flex; flex-direction:column; gap:7px;
-  width:210px; background:rgba(255,255,255,0.03);
+  display:flex; flex-direction:column; gap:6px;
+  width:220px; min-width:220px;
+  background:rgba(255,255,255,0.03);
   border:1px solid rgba(100,180,255,0.15);
-  border-radius:14px; padding:14px;
+  border-radius:14px; padding:12px;
+  overflow-y:auto;
 }
 .bs-panel-title {
   font-size:0.68rem; font-weight:800; text-transform:uppercase;
   letter-spacing:1px; color:var(--text-muted); margin-bottom:2px;
 }
 .bs-sel {
-  display:flex; align-items:center; gap:8px; padding:7px 9px;
-  border-radius:9px; border:1.5px solid rgba(255,255,255,0.07);
+  display:flex; align-items:center; gap:7px; padding:5px 8px;
+  border-radius:8px; border:1.5px solid rgba(255,255,255,0.07);
   background:rgba(255,255,255,0.03); cursor:pointer; transition:all 0.15s;
+  flex-shrink:0;
 }
 .bs-sel:hover:not(.placed) { border-color:rgba(76,201,240,0.4); background:rgba(76,201,240,0.07); }
 .bs-sel.selected { border-color:#4cc9f0; background:rgba(76,201,240,0.1); }
 .bs-sel.placed   { opacity:0.5; cursor:default; }
 .bs-sel-sprite   { flex-shrink:0; display:flex; align-items:center; }
 .bs-sel-info     { flex:1; }
-.bs-sel-name     { display:block; font-size:0.78rem; font-weight:700; }
-.bs-sel-sz       { font-size:0.62rem; color:var(--text-muted); }
+.bs-sel-name     { display:block; font-size:0.74rem; font-weight:700; }
+.bs-sel-sz       { font-size:0.6rem; color:var(--text-muted); }
 .bs-check        { color:#06d6a0; font-weight:900; font-size:1rem; }
 .bs-sel-tag      { font-size:0.6rem; font-weight:800; background:rgba(76,201,240,0.2); color:#4cc9f0; padding:1px 6px; border-radius:50px; }
 
@@ -122,12 +125,13 @@
   background:rgba(255,255,255,0.04); display:flex; align-items:center; gap:10px;
 }
 .bs-turn-bar.my { background:rgba(6,214,160,0.1); border-color:#06d6a0; color:#06d6a0; }
-.bs-fire-badge  { font-size:0.72rem; background:rgba(255,140,0,0.15); color:#ff8c00; border:1px solid rgba(255,140,0,0.3); padding:2px 8px; border-radius:50px; }
+
 
 .bs-play-row  { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; justify-content:center; }
 .bs-board-wrap { display:flex; flex-direction:column; gap:6px; align-items:center; }
 .bs-board-title { font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); }
-.bs-board-title.opp-title { color:#f4a261; }
+.bs-board-title.mine-title { color:#4cc9f0; }
+.bs-board-title.opp-title  { color:#f4a261; }
 .bs-divider { width:2px; background:rgba(255,255,255,0.05); border-radius:1px; align-self:stretch; margin:0 4px; }
 
 /* ── Status ── */

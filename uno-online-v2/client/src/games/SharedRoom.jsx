@@ -65,9 +65,9 @@ export const GAME_LIST = [
     description: "Place your fleet and sink your opponent's ships to win!",
     players: '2', minPlayers: 2, maxPlayers: 2,
     settings: [
-      { key:'boardSize',      label:'Board Size',      type:'chips',  default:10,    options:[10,12,15], desc:'Grid dimensions' },
-      { key:'shipCount',      label:'Ships',           type:'chips',  default:5,     options:[5,6,7,8],  desc:'Ships per player' },
-      { key:'includeBoat',    label:'Boat (1×1)',      type:'toggle', default:false, desc:'Add a tiny 1×1 boat ship' },
+      { key:'boardSize',      label:'Board Size',      type:'chips',  default:12,   options:[10,12,15],                         desc:'Grid dimensions' },
+      { key:'shipCount',      label:'Ships',           type:'chips',  default:6,    options:[5,6,7,8,9,10,11,12],               desc:'Ships per player' },
+      { key:'includeBoat',    label:'Boat (1×1)',      type:'toggle', default:true,  desc:'Add a tiny 1×1 boat ship' },
       { key:'continuousFire', label:'Continuous Fire', type:'toggle', default:false, desc:'Keep firing after a hit' },
     ],
   },

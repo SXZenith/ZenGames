@@ -5,9 +5,9 @@ const meta = {
   description: "Place your fleet and sink your opponent's ships!",
   players: '2', minPlayers: 2, maxPlayers: 2,
   settings: [
-    { key:'boardSize',       label:'Board Size',       type:'chips',  default:10, options:[10,12,15], desc:'Grid dimensions' },
-    { key:'shipCount',       label:'Ships',            type:'chips',  default:5,  options:[5,6,7,8],  desc:'Number of ships per player' },
-    { key:'includeBoat',     label:'Boat (1×1)',       type:'toggle', default:false, desc:'Add a tiny 1×1 boat ship' },
+    { key:'boardSize',       label:'Board Size',       type:'chips',  default:12, options:[10,12,15], desc:'Grid dimensions' },
+    { key:'shipCount',       label:'Ships',            type:'chips',  default:6,  options:[5,6,7,8,9,10,11,12], desc:'Number of ships per player' },
+    { key:'includeBoat',     label:'Boat (1×1)',       type:'toggle', default:true, desc:'Add a tiny 1×1 boat ship' },
     { key:'continuousFire',  label:'Continuous Fire',  type:'toggle', default:false, desc:'Keep firing after a hit' },
   ],
 };
@@ -41,7 +41,7 @@ function makeGrid(size) {
   return Array.from({ length:size }, () => Array(size).fill(null));
 }
 
-function autoPlace(shipDefs, size) {
+function autoPlace(shipDefs, size) { // shipDefs passed in
   const grid = makeGrid(size);
   const ships = [];
   for (const def of shipDefs) {
@@ -95,8 +95,8 @@ function createRoom(roomCode, settings={}) {
 }
 
 function getPublicState(room) {
-  const size      = room.settings?.boardSize || 10;
-  const shipDefs  = buildShipDefs(room.settings||{});
+  const size      = room.settings?.boardSize || 12;
+  const shipDefs  = room.shipDefs || buildShipDefs(room.settings||{});
   const publicBoards = {};
   for (const p of room.players) {
     const mine  = room.boards[p.id];
@@ -119,17 +119,17 @@ function getPublicState(room) {
     })),
     winner:room.winner, settings:room.settings,
     minPlayers:2, maxPlayers:2,
-    size, shipDefs,
+    size, shipDefs: room.shipDefs || buildShipDefs(room.settings||{}),
   };
 }
 
 function handleAction(room, playerId, action, payload) {
-  const size     = room.settings?.boardSize || 10;
-  const shipDefs = buildShipDefs(room.settings||{});
+  const size     = room.settings?.boardSize || 12;
+  const shipDefs = room.shipDefs || buildShipDefs(room.settings||{});
 
   if (action==='placeShips') {
     const {ships} = payload;
-    if (!validatePlacement(ships, shipDefs, size)) return;
+    if (!validatePlacement(ships, shipDefs, size)) { console.log('invalid placement'); return; }
     const grid = makeGrid(size);
     ships.forEach(s=>s.cells.forEach(([r,c])=>{grid[r][c]=s.name;}));
     room.boards[playerId] = {grid, ships:ships.map(s=>({...s,sunk:false})), shots:[]};
@@ -190,15 +190,17 @@ function startGame(room) {
   room.ready={};
   room.currentPlayerIndex=0;
   room.winner=null;
+  // Generate shipDefs once for the room so both players get same ships
+  room.shipDefs = buildShipDefs(room.settings || {}, Math.floor(Math.random()*10));
 }
 
 function rematch(room) {
-  // Reset to placing state — keep settings and scores
   room.state='placing';
   room.boards={};
   room.ready={};
   room.currentPlayerIndex=0;
   room.winner=null;
+  room.shipDefs = buildShipDefs(room.settings || {}, Math.floor(Math.random()*10));
 }
 
 module.exports = {meta,createRoom,getPublicState,handleAction,startGame,rematch};
